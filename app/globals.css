@@ -1,26 +1,270 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ===========================================================================
+   NNINO CERAMICS — "Gallery & Earth" design foundation
+   ---------------------------------------------------------------------------
+   Two layers of colour tokens, deliberately separated:
+
+   1. BRAND tokens (--color-terracotta, --color-ochre, --color-clay,
+      --color-stone, --color-warm-white, --color-charcoal) are the exact
+      supplied brand hexes. Never altered. Use for large fills, rules,
+      decorative surfaces and anything that does not carry small text.
+
+   2. SEMANTIC tokens (primary, secondary, accent, muted-foreground, ...) are
+      what components consume. Where a brand colour would carry small text,
+      the semantic token is a contrast-corrected variant of the same hue, so
+      the brand reads identically while meeting WCAG 2.2 AA (4.5:1 body).
+
+      Measured contrast on Warm White #FAF7F2 / against white:
+        Stone Grey  #8A7E72 body text .............. 3.74:1  FAIL  -> muted-foreground #6B6157 = 5.72:1 PASS
+        Terracotta  #B85C3A + Warm White text ...... 4.29:1  FAIL  -> primary-foreground #FFFFFF = 4.54:1 PASS
+        Clay Green  #7A8B6F + white text ........... 3.65:1  FAIL  -> secondary #5F6F55 = 5.40:1 PASS
+        Ochre       #D4A96A + Charcoal text ........ 6.44:1  PASS  (used as-is)
+
+   Do not hard-code hex values in components. Consume the semantic tokens.
+   =========================================================================== */
+
+@theme {
+  /* --- 1. Brand palette (verbatim, do not alter) --------------------------- */
+  --color-terracotta: #b85c3a;
+  --color-ochre: #d4a96a;
+  --color-clay: #7a8b6f;
+  --color-stone: #8a7e72;
+  --color-warm-white: #faf7f2;
+  --color-charcoal: #2c2c2c;
+
+  /* --- 2. Semantic surfaces ----------------------------------------------- */
+  --color-background: #faf7f2; /* Warm White — the page */
+  --color-surface: #ffffff; /* Paper white — cards sit on white, gallery-style */
+  --color-surface-sunken: #f2ece4; /* Deeper warm tint — alternating sections */
+  --color-foreground: #2c2c2c; /* Rich Charcoal */
+  --color-muted-foreground: #6b6157; /* Stone Grey, darkened for AA body text */
+
+  --color-border: #e7dfd4; /* Hairline, decorative separation */
+  --color-border-strong: #d4c9ba; /* Inputs, outlined controls */
+  --color-ring: #b85c3a; /* Focus ring — brand terracotta */
+
+  /* --- 3. Semantic actions ------------------------------------------------ */
+  --color-primary: #b85c3a; /* Terracotta */
+  --color-primary-hover: #a04e2f;
+  --color-primary-foreground: #ffffff;
+
+  --color-secondary: #5f6f55; /* Clay Green, deepened for AA */
+  --color-secondary-hover: #4e5c46;
+  --color-secondary-foreground: #ffffff;
+
+  --color-accent: #d4a96a; /* Ochre */
+  --color-accent-foreground: #2c2c2c;
+
+  --color-destructive: #a33a28; /* Kept inside the earth family, not a UI red */
+  --color-destructive-foreground: #ffffff;
+
+  /* --- 4. Typefaces ------------------------------------------------------- */
+  /* Loaded and self-hosted by next/font in app/layout.tsx. */
+  --font-display: var(--font-playfair), ui-serif, Georgia, serif;
+  --font-body: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-editorial: var(--font-cormorant), ui-serif, Georgia, serif;
+
+  /* --- 5. Radii — minimal by direction ------------------------------------ */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+
+  /* --- 6. Vertical rhythm ------------------------------------------------- */
+  --spacing-section: 7rem;
+  --spacing-section-sm: 4rem;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* ===========================================================================
+   TYPOGRAPHY ROLES
+   One utility per role from the brand direction: Display, Heading, Body,
+   Label, Navigation, Price, Metadata. Components reference these names only —
+   never a raw font-size — so the scale can be retuned in one place.
+   =========================================================================== */
+
+/* Display — hero statements only. Playfair at regular weight, not bold:
+   editorial restraint reads as a gallery, bold reads as a shop banner. */
+@utility text-display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(2.5rem, 6vw, 4.75rem);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@utility text-heading-1 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(1.875rem, 3.5vw, 2.75rem);
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+}
+
+@utility text-heading-2 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(1.375rem, 2vw, 1.75rem);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+/* Heading 3 switches to the body face on purpose: below ~1.25rem Playfair
+   loses legibility, and small serif headings are where templates look cheap. */
+@utility text-heading-3 {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 1.0625rem;
+  line-height: 1.35;
+  letter-spacing: -0.005em;
+}
+
+@utility text-body-lg {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 1.125rem;
+  line-height: 1.7;
+}
+
+@utility text-body {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
+@utility text-body-sm {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+/* Label — form labels and section eyebrows. */
+@utility text-label {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* Navigation — site nav and buttons. */
+@utility text-nav {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 0.8125rem;
+  line-height: 1;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Price — Cormorant, because a price on a handmade piece should read like a
+   gallery valuation, not a supermarket tag. Tabular so columns align. */
+@utility text-price {
+  font-family: var(--font-editorial);
+  font-weight: 500;
+  font-size: 1.375rem;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Metadata — the smallest tier: dimensions, weight, SKU, stock state. */
+@utility text-metadata {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 0.6875rem;
+  line-height: 1.3;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* Pull quotes and story openings. */
+@utility text-quote {
+  font-family: var(--font-editorial);
+  font-weight: 400;
+  font-style: italic;
+  font-size: clamp(1.375rem, 2.5vw, 2rem);
+  line-height: 1.4;
+}
+
+/* ===========================================================================
+   BASE LAYER
+   =========================================================================== */
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    border-color: var(--color-border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Visible keyboard focus everywhere, never removed. */
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+
+  /* Selection picks up the ochre — a small brand moment. */
+  ::selection {
+    background-color: var(--color-ochre);
+    color: var(--color-charcoal);
+  }
+
+  /* Honour the OS "reduce motion" setting. Non-negotiable. */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ===========================================================================
+   SIGNATURE ELEMENT — the gallery wall label
+   ---------------------------------------------------------------------------
+   Every Nnino piece is signed at the bottom and each one is a one-off, so the
+   catalogue is closer to a gallery hang than a product grid. The recurring
+   device across the whole site is therefore a museum wall label: a hairline
+   rule, the piece name, then its physical facts in small caps. It is the one
+   place the design is allowed to be distinctive; everything else stays quiet.
+   =========================================================================== */
+
+@utility gallery-label {
+  position: relative;
+  padding-top: 0.875rem;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 2.5rem;
+    height: 1px;
+    background-color: var(--color-terracotta);
+  }
 }

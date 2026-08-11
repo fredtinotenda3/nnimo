@@ -1,0 +1,23 @@
+# Local Postgres for development. Not used in production — that is a managed
+# instance (Neon or Supabase).
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: nnino-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nnino
+      POSTGRES_PASSWORD: nnino
+      POSTGRES_DB: nnino
+    ports:
+      - "5432:5432"
+    volumes:
+      - nnino-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nnino -d nnino"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  nnino-pgdata:

@@ -1,34 +1,38 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
+    "target": "ES2022",
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
+
+    // Strictness beyond the create-next-app default. noUncheckedIndexedAccess in
+    // particular is what forces every array/record lookup to be proven present,
+    // which is worth the friction on a codebase handling money and stock.
     "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+
     "noEmit": true,
     "esModuleInterop": true,
     "module": "esnext",
+    // Prisma 7 emits ESM with .js-suffixed relative imports; "bundler" is the
+    // resolution mode that handles them without rewriting the generated code.
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
+    // react-jsx is mandatory in Next 16 — the build rewrites "preserve" back to
+    // this, so it is set explicitly to keep the file stable.
     "jsx": "react-jsx",
     "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
-    "paths": {
-      "@/*": ["./*"]
-    }
+    "plugins": [{ "name": "next" }],
+    "paths": { "@/*": ["./*"] }
   },
   "include": [
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    "**/*.mts"
+    ".next/dev/types/**/*.ts"
   ],
   "exclude": ["node_modules"]
 }

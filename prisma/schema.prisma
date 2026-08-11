@@ -1,0 +1,689 @@
+// ============================================================================
+// Nnino Ceramics — Prisma Schema (Phase 1: Platform Foundation)
+// ============================================================================
+// Design notes (see /docs/architecture/data-model.md for full rationale):
+//
+// - Product lifecycle and sales availability are DELIBERATELY separate enums
+//   (ProductLifecycleStage vs ProductAvailability) rather than a single
+//   `inStock` boolean, per the project brief.
+// - Order carries two independent status columns — paymentStatus and
+//   fulfilmentStatus — because a paid order and a produced/shipped order are
+//   different lifecycles that must be able to disagree with each other.
+// - Payment is an append-only log (one row per attempt/transition), never
+//   mutated in place, so the true payment history is always reconstructable.
+//   Order.paymentStatus is a denormalized read model kept in sync by the
+//   server-side verification path only — never by client input.
+// - No payment provider is hard-coded: Payment.provider is a free-text
+//   field validated at the application layer against a small allow-list
+//   defined in code, so adding a provider is a code change, not a migration.
+// - Media is a first-class model so every image (product, artist, collection,
+//   campaign) shares one abstraction that can move from local disk to S3
+//   without touching the tables that reference it.
+// ============================================================================
+
+generator client {
+  // Prisma 7: `prisma-client` is the default generator and `output` is required.
+  // Generated into lib/ (not node_modules) so bundling is explicit and inspectable.
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  // url is now in prisma.config.ts
+}
+
+// ----------------------------------------------------------------------------
+// Auth / Admin
+// ----------------------------------------------------------------------------
+
+enum Role {
+  OWNER // Full access, including user management
+  MANAGER // Full operational access, no user management
+  PRODUCT_MANAGER // Products, collections, inventory, artists
+  ORDER_MANAGER // Orders, customers, fulfilment
+  MARKETING_MANAGER // Campaigns, landing pages, content
+  CONTENT_MANAGER // Content blocks, media, artist stories
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  auditLogs AuditLog[]
+
+  @@index([role])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String // e.g. "product.publish", "order.refund"
+  entityType String // e.g. "Product", "Order"
+  entityId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// ----------------------------------------------------------------------------
+// Media
+// ----------------------------------------------------------------------------
+
+enum MediaStorageProvider {
+  LOCAL
+  S3
+}
+
+model Media {
+  id        String               @id @default(cuid())
+  provider  MediaStorageProvider @default(LOCAL)
+  storageKey String              // relative path (local) or object key (S3) — SOURCE OF TRUTH
+  // Cached resolved URL. Nullable on purpose: resolveMediaUrl() derives the URL from
+  // provider+storageKey, so flipping LOCAL -> S3 needs no row rewrite. Never the only source.
+  url       String?
+  altText   String?
+  width     Int?
+  height    Int?
+  mimeType  String?
+  sizeBytes Int?
+  sourceNote String? // e.g. "Nnimo.pdf catalogue p.3" — provenance for imported assets
+  createdAt DateTime             @default(now())
+
+  productImages    ProductImage[]
+  artistPhotos     Artist[]              @relation("ArtistPhoto")
+  collectionHeroes Collection[]          @relation("CollectionHero")
+  campaignHeroes   Campaign[]            @relation("CampaignHero")
+  landingHeroes    LandingPage[]         @relation("LandingHero")
+  customInquiryRefs CustomOrderInquiryImage[]
+
+  @@index([provider])
+}
+
+// ----------------------------------------------------------------------------
+// Catalogue: Collections, Categories, Artists
+// ----------------------------------------------------------------------------
+
+enum CollectionStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model Collection {
+  id          String            @id @default(cuid())
+  name        String
+  slug        String            @unique
+  description String?
+  story       String?
+  heroImageId String?
+  heroImage   Media?            @relation("CollectionHero", fields: [heroImageId], references: [id], onDelete: SetNull)
+  status      CollectionStatus  @default(DRAFT)
+  featured    Boolean           @default(false)
+  sortOrder   Int               @default(0)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  products  Product[]
+  campaigns Campaign[]
+
+  @@index([status])
+  @@index([featured])
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  products Product[]
+}
+
+model Artist {
+  id          String   @id @default(cuid())
+  name        String
+  role        String // e.g. "Potter", "Sculptor", "Production Manager"
+  craft       String? // e.g. "Wheel throwing", "Hand sculpting"
+  bio         String? // left null until the business supplies real copy
+  photoId     String?
+  photo       Media?   @relation("ArtistPhoto", fields: [photoId], references: [id], onDelete: SetNull)
+  featured    Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  products Product[]
+
+  @@index([isActive])
+}
+
+// ----------------------------------------------------------------------------
+// Products
+// ----------------------------------------------------------------------------
+
+// Where a product sits in its lifecycle — independent of whether it can be sold.
+enum ProductLifecycleStage {
+  CATALOGUE // Known to exist (from brochure/catalogue) but not published
+  PUBLISHED // Live on the public site
+  ARCHIVED // Retired — kept for reference/history, not shown for sale
+}
+
+// Whether — and how — a published product can currently be purchased.
+// Nullable on Product: a CATALOGUE-stage product has no availability yet.
+enum ProductAvailability {
+  IN_STOCK
+  LOW_STOCK
+  OUT_OF_STOCK
+  MADE_TO_ORDER
+  CUSTOM_ONLY // Only obtainable via the custom commission workflow
+  COMING_SOON
+}
+
+model Product {
+  id       String  @id @default(cuid())
+  sku      String? @unique
+  name     String
+  slug     String  @unique
+
+  collectionId String?
+  collection   Collection? @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+  categoryId   String?
+  category     Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  artistId     String?
+  artist       Artist?     @relation(fields: [artistId], references: [id], onDelete: SetNull)
+
+  description String?
+  story       String?
+  material    String?
+  careInstructions String?
+
+  heightCm Decimal? @db.Decimal(6, 2)
+  widthCm  Decimal? @db.Decimal(6, 2)
+  weightKg Decimal? @db.Decimal(6, 2)
+
+  // Null price = not yet confirmed by the business; must not be treated as $0.
+  price    Decimal? @db.Decimal(10, 2)
+  currency String   @default("USD")
+
+  lifecycleStage ProductLifecycleStage @default(CATALOGUE)
+  availability   ProductAvailability?
+
+  // Overrides the global default production lead time (Settings) when set.
+  productionLeadTimeDays Int?
+
+  featured  Boolean  @default(false)
+  sourceNote String? // provenance, e.g. "Nnino Ceramics Brochure-1.pdf, Zebra Range"
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  images           ProductImage[]
+  inventory        Inventory?
+  inventoryMovements InventoryMovement[]
+  orderItems       OrderItem[]
+  cartItems        CartItem[]
+  campaignProducts CampaignProduct[]
+
+  @@index([lifecycleStage])
+  @@index([availability])
+  @@index([collectionId])
+  @@index([featured])
+}
+
+model ProductImage {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  mediaId   String
+  media     Media   @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  position  Int     @default(0)
+  isPrimary Boolean @default(false)
+
+  @@index([productId])
+}
+
+// ----------------------------------------------------------------------------
+// Inventory
+// ----------------------------------------------------------------------------
+
+enum InventoryMovementType {
+  RESTOCK
+  MANUAL_ADJUSTMENT
+  SALE
+  RESERVATION
+  RESERVATION_RELEASE
+  RETURN
+}
+
+model Inventory {
+  id                String   @id @default(cuid())
+  productId         String   @unique
+  product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  onHand            Int      @default(0)
+  reserved          Int      @default(0)
+  lowStockThreshold Int      @default(2)
+  updatedAt         DateTime @updatedAt
+
+  // `available` is intentionally NOT stored — always derive as onHand - reserved
+  // at the application layer to avoid drift; see lib/inventory.ts.
+  // productId is already UNIQUE, which Postgres indexes — no extra @@index needed.
+}
+
+model InventoryMovement {
+  id        String                 @id @default(cuid())
+  productId String
+  product   Product                @relation(fields: [productId], references: [id], onDelete: Cascade)
+  type      InventoryMovementType
+  quantity  Int // signed delta
+  reason    String?
+  orderId   String?
+  order     Order?                 @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  createdBy String? // User.id of admin who made a manual adjustment
+  createdAt DateTime               @default(now())
+
+  @@index([productId])
+  @@index([orderId])
+}
+
+// ----------------------------------------------------------------------------
+// Customers
+// ----------------------------------------------------------------------------
+
+model Customer {
+  id                String   @id @default(cuid())
+  name              String
+  email             String   @unique
+  phone             String?
+  marketingConsent  Boolean  @default(false)
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  orders Order[]
+  carts  Cart[]
+}
+
+// ----------------------------------------------------------------------------
+// Cart
+// ----------------------------------------------------------------------------
+
+model Cart {
+  id           String   @id @default(cuid())
+  customerId   String?
+  customer     Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  sessionToken String?  @unique // for guest carts
+  currency     String   @default("USD")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  items CartItem[]
+
+  @@index([customerId])
+}
+
+model CartItem {
+  id        String  @id @default(cuid())
+  cartId    String
+  cart      Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity  Int     @default(1)
+
+  @@unique([cartId, productId])
+}
+
+// ----------------------------------------------------------------------------
+// Orders, Payments, Fulfilment
+// ----------------------------------------------------------------------------
+
+enum OrderPaymentStatus {
+  UNPAID
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum OrderFulfilmentStatus {
+  PENDING
+  IN_PRODUCTION
+  READY
+  SHIPPED
+  DELIVERED
+  COLLECTED
+  CANCELLED
+}
+
+enum FulfilmentMethod {
+  DELIVERY
+  COLLECTION
+}
+
+model Order {
+  id          String   @id @default(cuid())
+  orderNumber String   @unique
+
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  guestName  String?
+  guestEmail String?
+  guestPhone String?
+
+  subtotal      Decimal @db.Decimal(10, 2)
+  shippingTotal Decimal @default(0) @db.Decimal(10, 2)
+  total         Decimal @db.Decimal(10, 2)
+  currency      String  @default("USD")
+
+  // Denormalized status columns — the source of truth for "where is this
+  // order at a glance". Only ever written by server-side order/payment logic.
+  paymentStatus     OrderPaymentStatus     @default(UNPAID)
+  fulfilmentStatus  OrderFulfilmentStatus  @default(PENDING)
+
+  fulfilmentMethod FulfilmentMethod?
+  deliveryAddress  Json?
+  trackingRef      String?
+  shippedAt        DateTime?
+  deliveredAt      DateTime?
+
+  customerNotes String?
+  internalNotes String?
+
+  // Marketing attribution
+  utmSource    String?
+  utmMedium    String?
+  utmCampaign  String?
+  campaignId   String?
+  campaign     Campaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  landingPageId String?
+  landingPage  LandingPage?  @relation(fields: [landingPageId], references: [id], onDelete: SetNull)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  cancelledAt DateTime?
+
+  items               OrderItem[]
+  payments             Payment[]
+  inventoryMovements   InventoryMovement[]
+
+  @@index([paymentStatus])
+  @@index([fulfilmentStatus])
+  @@index([customerId])
+  @@index([createdAt])
+}
+
+enum OrderItemProductionStatus {
+  PENDING
+  IN_PRODUCTION
+  READY
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  // Snapshots — never rely on live Product data for historical order display
+  productNameSnapshot String
+  skuSnapshot         String?
+
+  quantity  Int
+  unitPrice Decimal @db.Decimal(10, 2)
+  lineTotal Decimal @db.Decimal(10, 2)
+
+  requiresProduction Boolean                     @default(false)
+  productionStatus   OrderItemProductionStatus?
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  PAID
+  FAILED
+  REFUNDED
+}
+
+// Append-only log: every attempt/transition is a new row. Never update
+// a Payment row's status in place once PAID — insert a new row instead
+// (e.g. a REFUNDED row referencing the same order).
+model Payment {
+  id             String        @id @default(cuid())
+  orderId        String
+  order          Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  provider       String // validated against an app-level allow-list, not an enum
+  providerRef    String? // provider's transaction/reference id
+  status         PaymentStatus
+  amount         Decimal       @db.Decimal(10, 2)
+  currency       String        @default("USD")
+  idempotencyKey String?       @unique
+  rawPayload     Json? // verbatim provider payload for audit/debugging
+  createdAt      DateTime      @default(now())
+  verifiedAt     DateTime? // set only after server-side verification succeeds
+
+  @@index([orderId])
+  @@index([status])
+}
+
+// Raw inbound webhook/callback log — kept independent of Payment so a
+// malformed or duplicate webhook never corrupts the payment record.
+model PaymentWebhookEvent {
+  id             String    @id @default(cuid())
+  provider       String
+  eventType      String
+  idempotencyKey String    @unique
+  payload        Json
+  processedAt    DateTime?
+  createdAt      DateTime  @default(now())
+}
+
+// ----------------------------------------------------------------------------
+// Custom Orders (commissions)
+// ----------------------------------------------------------------------------
+
+enum CustomOrderStatus {
+  NEW
+  REVIEWING
+  QUOTED
+  APPROVED
+  PAYMENT
+  IN_PRODUCTION
+  COMPLETED
+  DELIVERED
+  CLOSED
+}
+
+model CustomOrderInquiry {
+  id           String            @id @default(cuid())
+  customerName String
+  email        String
+  phone        String?
+  organisation String?
+  requestType  String // e.g. "Custom sculpture", "Corporate gift set"
+  quantity     Int?
+  desiredDate  DateTime?
+  budget       String? // free text — customers rarely give a precise number
+  description  String
+  quote        Decimal?          @db.Decimal(10, 2)
+  internalNotes String?
+  status       CustomOrderStatus @default(NEW)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  referenceImages CustomOrderInquiryImage[]
+
+  @@index([status])
+}
+
+model CustomOrderInquiryImage {
+  id           String             @id @default(cuid())
+  inquiryId    String
+  inquiry      CustomOrderInquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  mediaId      String
+  media        Media              @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@index([inquiryId])
+}
+
+// ----------------------------------------------------------------------------
+// Wholesale / B2B
+// ----------------------------------------------------------------------------
+
+enum WholesaleBusinessType {
+  HOTEL
+  RESTAURANT
+  LODGE
+  INTERIOR_DESIGNER
+  GALLERY
+  GIFT_SHOP
+  CORPORATE
+  OTHER
+}
+
+enum WholesaleInquiryStatus {
+  NEW
+  REVIEWING
+  QUOTED
+  APPROVED
+  CLOSED
+}
+
+model WholesaleInquiry {
+  id               String                  @id @default(cuid())
+  businessName     String
+  contactName      String
+  email            String
+  phone            String?
+  businessType     WholesaleBusinessType
+  estimatedVolume  String?
+  message          String
+  internalNotes    String?
+  status           WholesaleInquiryStatus  @default(NEW)
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  @@index([status])
+}
+
+// ----------------------------------------------------------------------------
+// Marketing: Campaigns & Landing Pages
+// ----------------------------------------------------------------------------
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  ACTIVE
+  ENDED
+  ARCHIVED
+}
+
+model Campaign {
+  id           String         @id @default(cuid())
+  name         String
+  slug         String         @unique
+  description  String?
+  heroImageId  String?
+  heroImage    Media?         @relation("CampaignHero", fields: [heroImageId], references: [id], onDelete: SetNull)
+  collectionId String?
+  collection   Collection?    @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+  cta          String?
+  startDate    DateTime?
+  endDate      DateTime?
+  status       CampaignStatus @default(DRAFT)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  products     CampaignProduct[]
+  landingPages LandingPage[]
+  orders       Order[]
+
+  @@index([status])
+}
+
+model CampaignProduct {
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, productId])
+}
+
+enum LandingPageStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model LandingPage {
+  id            String            @id @default(cuid())
+  slug          String            @unique
+  campaignId    String?
+  campaign      Campaign?         @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  title         String
+  heroImageId   String?
+  heroImage     Media?            @relation("LandingHero", fields: [heroImageId], references: [id], onDelete: SetNull)
+  message       String?
+  storyContent  String?
+  cta           String?
+  status        LandingPageStatus @default(DRAFT)
+  defaultUtmSource   String?
+  defaultUtmMedium   String?
+  defaultUtmCampaign String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  orders Order[]
+
+  @@index([status])
+}
+
+// ----------------------------------------------------------------------------
+// Content Management (flexible key-value CMS for site copy)
+// ----------------------------------------------------------------------------
+
+enum ContentBlockType {
+  TEXT
+  RICH_TEXT
+  IMAGE
+  JSON
+}
+
+model ContentBlock {
+  id        String           @id @default(cuid())
+  key       String           @unique // e.g. "homepage.hero.headline", "legacy.story"
+  type      ContentBlockType
+  value     String? // used for TEXT / RICH_TEXT
+  jsonValue Json? // used for JSON-shaped content
+  mediaId   String? // used for IMAGE
+  updatedBy String?
+  updatedAt DateTime         @updatedAt
+  createdAt DateTime         @default(now())
+}
+
+// ----------------------------------------------------------------------------
+// Settings (small, explicit, configurable business rules)
+// ----------------------------------------------------------------------------
+
+model Setting {
+  key       String   @id // e.g. "production.default_lead_time_days"
+  value     String
+  updatedAt DateTime @updatedAt
+}
