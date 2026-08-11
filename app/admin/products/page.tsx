@@ -6,6 +6,8 @@ import { formatDimensions, formatPrice, formatWeight, PRICE_ON_REQUEST } from "@
 import { availableQuantity } from "@/lib/inventory";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PublishToggle } from "@/components/admin/publish-toggle";
+import { toggleProductPublished } from "@/app/admin/publish-actions";
 import {
   Table,
   TableBody,
@@ -108,6 +110,7 @@ export default async function AdminProductsPage() {
               <TableHead>Measurements</TableHead>
               <TableHead className="text-right">Price</TableHead>
               <TableHead className="text-right">Available</TableHead>
+              <TableHead><span className="sr-only">Publish</span></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -150,6 +153,13 @@ export default async function AdminProductsPage() {
                   <TableNumericCell className="text-muted-foreground">
                     {product.inventory ? availableQuantity(product.inventory) : "—"}
                   </TableNumericCell>
+                  <TableCell className="text-right">
+                    <PublishToggle
+                      id={product.id}
+                      published={product.lifecycleStage === "PUBLISHED"}
+                      action={toggleProductPublished}
+                    />
+                  </TableCell>
                 </TableRow>
               );
             })}

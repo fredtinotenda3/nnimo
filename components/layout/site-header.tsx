@@ -7,17 +7,8 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Container } from "@/components/ui/container";
-
-export type NavItem = { label: string; href: string };
-
-export const PRIMARY_NAV: NavItem[] = [
-  { label: "Shop", href: "/shop" },
-  { label: "Collections", href: "/collections" },
-  { label: "The Family", href: "/family" },
-  { label: "Legacy", href: "/legacy" },
-  { label: "Commissions", href: "/commissions" },
-  { label: "Contact", href: "/contact" },
-];
+import { PRIMARY_NAV } from "@/lib/navigation";
+import { SiteLogo } from "@/components/site/site-logo";
 
 export interface SiteHeaderProps {
   /**
@@ -96,19 +87,12 @@ function SiteHeader({ overHero = false }: SiteHeaderProps) {
       >
         <Container>
           <div className="flex h-16 items-center justify-between gap-6 lg:h-20">
-            <Link
-              href="/"
-              className={cn(
-                "text-heading-2 shrink-0 transition-colors",
-                solid ? "text-foreground" : "text-warm-white",
-              )}
-            >
-              Nnino
-              <span className="sr-only"> Ceramics — home</span>
+            <Link href="/" className="shrink-0" aria-label="Nnino Ceramics — home">
+              <SiteLogo className="h-7 lg:h-8" invert={!solid} />
             </Link>
 
             <nav aria-label="Primary" className="hidden lg:block">
-              <ul className="flex items-center gap-8">
+              <ul className="flex items-center gap-6 xl:gap-8">
                 {PRIMARY_NAV.map((item) => {
                   const active =
                     pathname === item.href || pathname.startsWith(`${item.href}/`);

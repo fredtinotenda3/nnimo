@@ -2,14 +2,7 @@ import * as React from "react";
 import Link from "next/link";
 import { Container } from "@/components/ui/container";
 import { BRAND, whatsappLink } from "@/lib/brand";
-import { PRIMARY_NAV } from "@/components/layout/site-header";
-
-const CUSTOMER_LINKS = [
-  { label: "Custom commissions", href: "/commissions" },
-  { label: "Wholesale enquiries", href: "/wholesale" },
-  { label: "Shipping & collection", href: "/shipping" },
-  { label: "Care instructions", href: "/care" },
-];
+import { FOOTER_BUYING_NAV, PRIMARY_NAV } from "@/lib/navigation";
 
 /**
  * Server component: nothing here is interactive, so it ships no JavaScript.
@@ -55,7 +48,7 @@ function SiteFooter() {
               Buying
             </h2>
             <ul className="mt-5 flex flex-col gap-3">
-              {CUSTOMER_LINKS.map((item) => (
+              {FOOTER_BUYING_NAV.map((item) => (
                 <li key={item.href}>
                   <Link
                     href={item.href}

@@ -1,102 +1,159 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
-import { db } from "@/lib/db";
-import { CollectionStatus, ProductLifecycleStage } from "@/lib/generated/prisma/enums";
-import { BRAND } from "@/lib/brand";
-import { formatDimensions, formatPriceOrRequest, formatWeight } from "@/lib/money";
+import { BRAND, whatsappLink } from "@/lib/brand";
+import {
+  getContentBlocks,
+  getFeaturedCollections,
+  getFeaturedProducts,
+  getPublicTeam,
+} from "@/lib/catalogue";
+import {
+  ANTELOPE_VASE,
+  GIRAFFE_TUREEN_VIEWS,
+  HERO_PIECE,
+  MOTIF,
+  TEAM_PHOTO,
+} from "@/lib/brand-assets";
+import { organisationJsonLd } from "@/lib/seo";
 import { Container } from "@/components/ui/container";
 import { Section } from "@/components/ui/section";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { GalleryLabel } from "@/components/ui/gallery-label";
+import { ProductCard } from "@/components/catalogue/product-card";
+import { CollectionCard } from "@/components/catalogue/collection-card";
 
 export const metadata: Metadata = {
+  title: "Nnino Ceramics — Made By Hand, With Heart",
+  description:
+    "Handcrafted ceramics and sculpture from Bulawayo, Zimbabwe. Every piece is individually designed, hand sculptured, hand painted and signed.",
   alternates: { canonical: "/" },
 };
 
-// Reads live catalogue state, so it must not be captured at build time.
+// Reads live catalogue state — publishing a piece must show up immediately.
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [publishedCollections, featuredPieces, artists] = await Promise.all([
-    db.collection.findMany({
-      where: { status: CollectionStatus.PUBLISHED },
-      orderBy: [{ featured: "desc" }, { sortOrder: "asc" }],
-      take: 6,
-      select: { id: true, name: true, slug: true, description: true },
-    }),
-    db.product.findMany({
-      where: { lifecycleStage: ProductLifecycleStage.PUBLISHED },
-      orderBy: [{ featured: "desc" }, { name: "asc" }],
-      take: 6,
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        heightCm: true,
-        widthCm: true,
-        weightKg: true,
-        price: true,
-        currency: true,
-        collection: { select: { name: true } },
-      },
-    }),
-    db.artist.findMany({
-      where: { isActive: true },
-      orderBy: { sortOrder: "asc" },
-      select: { id: true, name: true, role: true },
-    }),
+  const [collections, pieces, team, copy] = await Promise.all([
+    getFeaturedCollections(3),
+    getFeaturedProducts(6),
+    getPublicTeam(),
+    getContentBlocks([
+      "homepage.hero.headline",
+      "legacy.origin",
+      "about.products",
+    ]),
   ]);
+
+  const headline = copy.get("homepage.hero.headline") ?? BRAND.tagline;
+  const origin = copy.get("legacy.origin");
+  const craft = copy.get("about.products");
 
   return (
     <>
-      {/* ---------------------------------------------------------------- Hero */}
-      <section className="relative flex min-h-[88svh] items-end overflow-hidden bg-charcoal">
-        {/*
-          The hero image slot is intentionally empty until the team uploads a
-          rights-cleared crop through the admin. Rather than shipping a stock
-          photograph, the slot renders as a deep charcoal field so the
-          typography carries the page and the real photograph drops in later
-          without any layout change.
-        */}
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 bg-gradient-to-b from-charcoal via-charcoal to-[#1d1a18]"
-        />
-        <Container className="relative pb-16 pt-32 sm:pb-24 lg:pb-32">
-          <p className="text-label text-ochre">
-            {BRAND.city}, {BRAND.country}
-          </p>
-          <h1 className="text-display mt-5 max-w-4xl text-warm-white">
-            Made by hand,
-            <br />
-            with heart.
-          </h1>
-          <p className="text-body-lg mt-8 max-w-xl text-warm-white/75">
-            Every piece is individually designed, hand sculptured, hand painted, and
-            signed at the bottom. One piece takes five to six weeks from clay to
-            finished work.
-          </p>
-          <div className="mt-10 flex flex-wrap gap-4">
-            <Button asChild size="lg">
-              <Link href="/shop">Browse the shop</Link>
-            </Button>
-            <Button asChild size="lg" variant="outline" className="border-warm-white/40 text-warm-white hover:bg-warm-white/10">
-              <Link href="/legacy">The Nnino story</Link>
-            </Button>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organisationJsonLd()) }}
+      />
+
+      {/* ============================================================== 1. Hero
+          Split rather than full-bleed: the supplied photograph is 810x1080, and
+          stretching it across a 1440px viewport would soften the one thing that
+          has to look sharp. Type holds the left, the piece holds the right. */}
+      <section className="relative bg-charcoal">
+        <div className="grid lg:min-h-[92svh] lg:grid-cols-2">
+          <div className="order-2 flex flex-col justify-center px-5 pb-20 pt-14 sm:px-8 lg:order-1 lg:px-14 lg:py-28 xl:px-20">
+            <p className="text-label text-ochre">
+              {BRAND.city}, {BRAND.country}
+            </p>
+            <h1 className="text-display mt-6 text-warm-white">{headline}</h1>
+            <p className="text-body-lg mt-8 max-w-md text-warm-white/75">
+              Individually designed, hand sculptured, hand painted, and signed at the
+              bottom of every piece.
+            </p>
+            <div className="mt-10 flex flex-wrap gap-4">
+              <Button asChild size="lg">
+                <Link href="/shop">Browse the collection</Link>
+              </Button>
+              <Button
+                asChild
+                size="lg"
+                variant="outline"
+                className="border-warm-white/40 text-warm-white hover:bg-warm-white/10"
+              >
+                <Link href="/about">The Nnino story</Link>
+              </Button>
+            </div>
           </div>
-        </Container>
+
+          <div className="relative order-1 aspect-[4/5] w-full lg:order-2 lg:aspect-auto lg:h-full">
+            <Image
+              src={HERO_PIECE.src}
+              alt={HERO_PIECE.alt}
+              width={HERO_PIECE.width}
+              height={HERO_PIECE.height}
+              priority
+              sizes="(min-width: 1024px) 50vw, 100vw"
+              className="h-full w-full object-cover"
+            />
+          </div>
+        </div>
       </section>
 
-      {/* ------------------------------------------------------------- The work */}
+      {/* ================================================= 2. Brand statement */}
       <Section>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="mx-auto max-w-3xl text-center">
+          <p className="text-label text-muted-foreground">Nnino Ceramics</p>
+          <p className="text-quote mt-6 text-foreground">
+            {origin ??
+              `Nnino Ceramics was established by ${BRAND.founder} in ${BRAND.city}, ${BRAND.country}.`}
+          </p>
+        </div>
+      </Section>
+
+      {/* =============================================== 3. Featured collections */}
+      <Section tone="sunken">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-label text-muted-foreground">Ranges</p>
+            <h2 className="text-heading-1 mt-3">Collections</h2>
+          </div>
+          <Link href="/collections" className="text-nav text-primary hover:underline">
+            All collections
+          </Link>
+        </div>
+
+        <div className="mt-12">
+          {collections.length === 0 ? (
+            <EmptyState
+              title="No collections are published yet"
+              description="Every range from the Nnino brochure has been imported as a draft. Publish one from the admin and it will appear here."
+              action={
+                <Button asChild variant="outline" size="sm">
+                  <Link href="/admin/collections">Open collections</Link>
+                </Button>
+              }
+            />
+          ) : (
+            <ul className="grid gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+              {collections.map((collection, index) => (
+                <li key={collection.id}>
+                  <CollectionCard collection={collection} priority={index === 0} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </Section>
+
+      {/* ================================================== 4. Featured products */}
+      <Section>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-label text-muted-foreground">Selected pieces</p>
-            <h2 className="text-heading-1 mt-3">Currently in the gallery</h2>
+            <h2 className="text-heading-1 mt-3">In the gallery</h2>
           </div>
-          {featuredPieces.length > 0 ? (
+          {pieces.length > 0 ? (
             <Link href="/shop" className="text-nav text-primary hover:underline">
               See everything
             </Link>
@@ -104,10 +161,10 @@ export default async function HomePage() {
         </div>
 
         <div className="mt-12">
-          {featuredPieces.length === 0 ? (
+          {pieces.length === 0 ? (
             <EmptyState
               title="No pieces are published yet"
-              description="The catalogue has been imported from the Nnino brochures, but nothing has been published for sale. Publish a piece from the admin and it will appear here."
+              description="The catalogue is imported and waiting. Publishing is a separate decision from importing, so nothing is offered for sale until the team says so."
               action={
                 <Button asChild variant="outline" size="sm">
                   <Link href="/admin/products">Open the catalogue</Link>
@@ -116,21 +173,9 @@ export default async function HomePage() {
             />
           ) : (
             <ul className="grid gap-x-8 gap-y-14 sm:grid-cols-2 lg:grid-cols-3">
-              {featuredPieces.map((piece) => (
+              {pieces.map((piece) => (
                 <li key={piece.id}>
-                  <Link href={`/shop/${piece.slug}`} className="group block">
-                    <div className="aspect-[4/5] w-full bg-surface-sunken transition-colors group-hover:bg-border" />
-                    <GalleryLabel
-                      className="mt-5"
-                      eyebrow={piece.collection?.name ?? null}
-                      title={piece.name}
-                      facts={[
-                        formatDimensions(piece.heightCm, piece.widthCm),
-                        formatWeight(piece.weightKg),
-                      ]}
-                      price={formatPriceOrRequest(piece.price, piece.currency)}
-                    />
-                  </Link>
+                  <ProductCard product={piece} />
                 </li>
               ))}
             </ul>
@@ -138,8 +183,43 @@ export default async function HomePage() {
         </div>
       </Section>
 
-      {/* ------------------------------------------------------------- The story */}
+      {/* ===================================================== 5. Craftsmanship */}
       <Section tone="sunken">
+        <div className="grid items-center gap-12 lg:grid-cols-12 lg:gap-16">
+          <div className="lg:col-span-6">
+            <div className="relative aspect-[3/4] w-full overflow-hidden">
+              <Image
+                src={ANTELOPE_VASE.src}
+                alt={ANTELOPE_VASE.alt}
+                fill
+                sizes="(min-width: 1024px) 45vw, 90vw"
+                className="object-cover"
+              />
+            </div>
+          </div>
+          <div className="lg:col-span-6">
+            <p className="text-label text-muted-foreground">Craftsmanship</p>
+            <h2 className="text-heading-1 mt-3">Five to six weeks, by hand</h2>
+            <p className="text-body-lg mt-6 text-muted-foreground">
+              {craft ??
+                "Each and every piece is individually designed, handmade, hand sculptured and hand painted, and signed at the bottom."}
+            </p>
+            <dl className="mt-10 grid gap-6 sm:grid-cols-2">
+              <div className="gallery-label">
+                <dt className="text-metadata text-muted-foreground">Studio</dt>
+                <dd className="text-heading-3 mt-1">A team of {BRAND.teamSize}</dd>
+              </div>
+              <div className="gallery-label">
+                <dt className="text-metadata text-muted-foreground">Every piece</dt>
+                <dd className="text-heading-3 mt-1">Signed underneath</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      </Section>
+
+      {/* ==================================================== 6. Story / legacy */}
+      <Section>
         <div className="grid gap-12 lg:grid-cols-12 lg:gap-16">
           <div className="lg:col-span-5">
             <p className="text-label text-muted-foreground">The Nnino legacy</p>
@@ -148,78 +228,144 @@ export default async function HomePage() {
             </h2>
           </div>
           <div className="lg:col-span-7">
-            <p className="text-quote text-foreground">
-              Nnino Ceramics was established by {BRAND.founder} in {BRAND.city},{" "}
-              {BRAND.country}.
-            </p>
-            <p className="text-body-lg mt-6 text-muted-foreground">
-              Each piece is individually designed and handcrafted with passion and
-              style to create a unique product, exposing the local talent in
-              sculpture and art. Behind the work is a team of {BRAND.teamSize} —
-              potters, sculptors, painters, a moulder, and the kiln and glazing
-              hands that finish every piece.
+            <p className="text-body-lg text-muted-foreground">
+              {origin ??
+                `Nnino Ceramics was established by ${BRAND.founder} in ${BRAND.city}.`}
             </p>
             <Button asChild variant="link" className="mt-6">
-              <Link href="/legacy">Read the full story</Link>
+              <Link href="/about">Read the full story</Link>
+            </Button>
+          </div>
+        </div>
+
+        {/* Four views of one piece — the same tureen from every side, which is how
+            a one-off is actually assessed. */}
+        <ul className="mt-16 grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+          {GIRAFFE_TUREEN_VIEWS.map((view) => (
+            <li key={view.src} className="relative aspect-[3/4] overflow-hidden">
+              <Image
+                src={view.src}
+                alt={view.alt}
+                fill
+                sizes="(min-width: 1024px) 24vw, 45vw"
+                className="object-cover"
+              />
+            </li>
+          ))}
+        </ul>
+      </Section>
+
+      {/* ================================================ 7. Nnino Family preview */}
+      <Section tone="sunken">
+        <div className="grid items-center gap-12 lg:grid-cols-12 lg:gap-16">
+          <div className="lg:col-span-7">
+            <div className="relative aspect-[3/2] w-full overflow-hidden">
+              <Image
+                src={TEAM_PHOTO.src}
+                alt={TEAM_PHOTO.alt}
+                fill
+                sizes="(min-width: 1024px) 55vw, 90vw"
+                className="object-cover"
+              />
+            </div>
+          </div>
+          <div className="lg:col-span-5">
+            <p className="text-label text-muted-foreground">The people</p>
+            <h2 className="text-heading-1 mt-3">Meet the Nnino family</h2>
+            <p className="text-body mt-6 text-muted-foreground">
+              Potters, sculptors, painters, a moulder, and the kiln and glazing hands
+              that finish every piece.
+            </p>
+            {team.length > 0 ? (
+              <ul className="mt-8 flex flex-col divide-y divide-border border-t border-border">
+                {team.slice(0, 5).map((member) => (
+                  <li
+                    key={member.id}
+                    className="flex items-baseline justify-between gap-4 py-3"
+                  >
+                    <span className="text-body-sm font-medium">{member.name}</span>
+                    <span className="text-metadata text-muted-foreground">
+                      {member.role}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <Button asChild variant="link" className="mt-6">
+              <Link href="/family">Meet everyone</Link>
             </Button>
           </div>
         </div>
       </Section>
 
-      {/* --------------------------------------------------------- Collections */}
-      <Section>
-        <p className="text-label text-muted-foreground">Ranges</p>
-        <h2 className="text-heading-1 mt-3">Collections</h2>
-        <div className="mt-12">
-          {publishedCollections.length === 0 ? (
-            <EmptyState
-              title="No collections are published yet"
-              description="All ranges from the brochure have been imported as drafts. Publish one from the admin to show it here."
-            />
-          ) : (
-            <ul className="grid gap-px overflow-hidden rounded-[var(--radius-md)] border border-border bg-border sm:grid-cols-2 lg:grid-cols-3">
-              {publishedCollections.map((collection) => (
-                <li key={collection.id} className="bg-surface">
-                  <Link
-                    href={`/collections/${collection.slug}`}
-                    className="flex h-full flex-col p-7 transition-colors hover:bg-surface-sunken"
-                  >
-                    <h3 className="text-heading-2">{collection.name}</h3>
-                    {collection.description ? (
-                      <p className="text-body-sm mt-3 text-muted-foreground">
-                        {collection.description}
-                      </p>
-                    ) : null}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
+      {/* =============================================== 8. Custom commissions */}
+      <Section className="relative overflow-hidden">
+        {/* The brand's own motif, used once and kept almost invisible. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 opacity-[0.06]"
+          style={{
+            backgroundImage: `url(${MOTIF.src})`,
+            backgroundSize: "420px auto",
+            backgroundRepeat: "repeat",
+          }}
+        />
+        <div className="relative mx-auto max-w-2xl text-center">
+          <p className="text-label text-muted-foreground">Commissions</p>
+          <h2 className="text-heading-1 mt-3">Have a piece made for you</h2>
+          <p className="text-body-lg mt-6 text-muted-foreground">
+            Custom sculptures, corporate gifts, dinner services and event pieces. Tell
+            the studio what you have in mind and they will come back to you with a
+            quotation.
+          </p>
+          <div className="mt-10 flex flex-wrap justify-center gap-4">
+            <Button asChild size="lg">
+              <Link href="/custom">Start a commission</Link>
+            </Button>
+            <Button asChild size="lg" variant="outline">
+              <a
+                href={whatsappLink(
+                  "Hello Nnino Ceramics, I would like to discuss a commission.",
+                )}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                WhatsApp the studio
+              </a>
+            </Button>
+          </div>
         </div>
       </Section>
 
-      {/* ------------------------------------------------------------- The family */}
-      <Section tone="sunken">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-label text-muted-foreground">The people</p>
-            <h2 className="text-heading-1 mt-3">Meet the Nnino family</h2>
+      {/* ====================================================== 9. Closing CTA */}
+      <section className="bg-charcoal">
+        <Container>
+          <div className="flex flex-col items-start gap-8 py-20 lg:flex-row lg:items-center lg:justify-between lg:py-28">
+            <div>
+              <h2 className="text-heading-1 max-w-xl text-warm-white">{BRAND.tagline}</h2>
+              <p className="text-body mt-4 max-w-md text-warm-white/70">
+                Visit the studio at {BRAND.addressLines[0]}, {BRAND.addressLines[1]}, or
+                send a message.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-4">
+              <Button asChild size="lg">
+                <Link href="/contact">Contact the studio</Link>
+              </Button>
+              <Button
+                asChild
+                size="lg"
+                variant="outline"
+                className="border-warm-white/40 text-warm-white hover:bg-warm-white/10"
+              >
+                <Link href="/collections">Explore collections</Link>
+              </Button>
+            </div>
           </div>
-          <Link href="/family" className="text-nav text-primary hover:underline">
-            Meet everyone
-          </Link>
-        </div>
-        <ul className="mt-12 flex flex-wrap gap-3">
-          {artists.map((artist) => (
-            <li key={artist.id}>
-              <Badge variant="outline" className="px-3 py-2">
-                <span className="text-body-sm">{artist.name}</span>
-                <span className="text-metadata text-muted-foreground">{artist.role}</span>
-              </Badge>
-            </li>
-          ))}
-        </ul>
-      </Section>
+        </Container>
+      </section>
+
+      {/* 10. Footer comes from app/(site)/layout.tsx */}
     </>
   );
 }

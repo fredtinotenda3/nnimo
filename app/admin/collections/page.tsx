@@ -4,6 +4,8 @@ import { requirePermission } from "@/lib/session";
 import { CollectionStatus } from "@/lib/generated/prisma/enums";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PublishToggle } from "@/components/admin/publish-toggle";
+import { toggleCollectionPublished } from "@/app/admin/publish-actions";
 import {
   Table,
   TableBody,
@@ -84,6 +86,7 @@ export default async function AdminCollectionsPage() {
               <TableHead>Slug</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Pieces</TableHead>
+              <TableHead><span className="sr-only">Publish</span></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -104,6 +107,14 @@ export default async function AdminCollectionsPage() {
                   </Badge>
                 </TableCell>
                 <TableNumericCell>{collection._count.products}</TableNumericCell>
+                <TableCell className="text-right">
+                  <PublishToggle
+                    id={collection.id}
+                    published={collection.status === "PUBLISHED"}
+                    action={toggleCollectionPublished}
+                    label="range"
+                  />
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

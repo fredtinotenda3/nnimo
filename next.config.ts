@@ -17,6 +17,18 @@ const nextConfig: NextConfig = {
       ? [{ protocol: "https", hostname: new URL(process.env.MEDIA_S3_PUBLIC_URL).hostname }]
       : [],
   },
+  async redirects() {
+    // Phase 1 shipped /legacy and /commissions in the navigation. Phase 2 renamed
+    // them to /about and /custom, so anything already shared or bookmarked keeps
+    // working instead of 404ing.
+    return [
+      { source: "/legacy", destination: "/about", permanent: true },
+      { source: "/commissions", destination: "/custom", permanent: true },
+      // Product URLs live under /products/[slug]; /shop/[slug] was the Phase 1
+      // placeholder shape used by the old homepage links.
+      { source: "/shop/:slug", destination: "/products/:slug", permanent: true },
+    ];
+  },
   async headers() {
     return [
       {
