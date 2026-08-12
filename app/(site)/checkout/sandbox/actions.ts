@@ -7,6 +7,14 @@ import { db } from "@/lib/db";
 import { sendOrderEmail } from "@/lib/email/order-emails";
 import { formatCents, toCents } from "@/lib/commerce/money";
 
+/**
+ * Records the tester's chosen outcome, then runs the *real* verification path.
+ *
+ * Importantly, this action does not set the order to PAID itself. It tells the
+ * sandbox provider what the "gateway" will report, then calls
+ * verifyAndApplyPayment, which is the same code the production provider will use.
+ * That way the path being proven here is the path that will run in production.
+ */
 export async function completeSandboxPayment(formData: FormData): Promise<void> {
   if (!sandboxProvider.isConfigured()) throw new Error("Sandbox provider is not active.");
 
@@ -32,14 +40,7 @@ export async function completeSandboxPayment(formData: FormData): Promise<void> 
       currency: true,
       fulfilmentMethod: true,
       deliveryQuoteStatus: true,
-      items: {
-        select: {
-          productNameSnapshot: true,
-          quantity: true,
-          lineTotal: true,
-          requiresProduction: true,   // ← added
-        },
-      },
+      items: { select: { productNameSnapshot: true, quantity: true, lineTotal: true } },
     },
   });
 
@@ -53,7 +54,7 @@ export async function completeSandboxPayment(formData: FormData): Promise<void> 
       currency: order.currency,
       fulfilmentMethod: order.fulfilmentMethod,
       deliveryPendingQuote: order.deliveryQuoteStatus === "PENDING_QUOTE",
-      lines: order.items.map((item) => ({
+      lines: order.items.map((item: { productNameSnapshot: string; quantity: number; lineTotal: { toString(): string }; requiresProduction: boolean }) => ({
         name: item.productNameSnapshot,
         quantity: item.quantity,
         lineTotalLabel: formatCents(toCents(item.lineTotal) ?? 0, order.currency),
