@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { createOrderFromCart, CheckoutValidationError, nextOrderNumber } from "@/lib/commerce/orders";
 import { toCents } from "@/lib/commerce/money";
-import { CHECKOUT_INPUT, addLine, cleanup, db, makeCart, makeProduct, uid } from "./helpers";
+import { CHECKOUT_INPUT, addLine, assertFound, cleanup, db, makeCart, makeProduct, uid } from "./helpers";
 
 const created = { orderIds: [] as string[], cartIds: [] as string[], productIds: [] as string[], customerEmails: [] as string[] };
 
@@ -59,6 +59,7 @@ describe("createOrderFromCart", () => {
       },
     });
 
+    assertFound(persisted);
     expect(toCents(persisted.subtotal)).toBe(30000);
     expect(toCents(persisted.total)).toBe(30000);
     expect(toCents(persisted.shippingTotal)).toBe(0);
@@ -67,10 +68,12 @@ describe("createOrderFromCart", () => {
     expect(persisted.deliveryQuoteStatus).toBe("NOT_REQUIRED");
     expect(persisted.cartId).toBe(cart.id);
     expect(persisted.items).toHaveLength(1);
-    expect(persisted.items[0].productNameSnapshot).toBe(product.name);
-    expect(toCents(persisted.items[0].unitPrice)).toBe(15000);
-    expect(toCents(persisted.items[0].lineTotal)).toBe(30000);
-    expect(persisted.items[0].requiresProduction).toBe(true);
+    const firstItem = persisted.items[0];
+    assertFound(firstItem);
+    expect(firstItem.productNameSnapshot).toBe(product.name);
+    expect(toCents(firstItem.unitPrice)).toBe(15000);
+    expect(toCents(firstItem.lineTotal)).toBe(30000);
+    expect(firstItem.requiresProduction).toBe(true);
   });
 
   it("keeps the historical price when the catalogue price later changes", async () => {
@@ -96,6 +99,7 @@ describe("createOrderFromCart", () => {
       where: { orderId: order.id },
       select: { unitPrice: true, lineTotal: true },
     });
+    assertFound(item);
     expect(toCents(item.unitPrice)).toBe(15000);
     expect(toCents(item.lineTotal)).toBe(15000);
   });
@@ -194,6 +198,7 @@ describe("createOrderFromCart", () => {
       where: { id: order.id },
       select: { deliveryQuoteStatus: true, shippingTotal: true, total: true, subtotal: true, deliveryAddress: true },
     });
+    assertFound(persisted);
     expect(persisted.deliveryQuoteStatus).toBe("PENDING_QUOTE");
     expect(toCents(persisted.shippingTotal)).toBe(0);
     // No invented delivery fee: total equals subtotal until the studio quotes.

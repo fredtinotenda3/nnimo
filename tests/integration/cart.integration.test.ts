@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it } from "vitest";
-import { addLine, cleanup, db, makeCart, makeProduct } from "./helpers";
+import { addLine, assertFound, cleanup, db, makeCart, makeProduct } from "./helpers";
 import { evaluatePurchasability } from "@/lib/commerce/purchasability";
 import { toCents } from "@/lib/commerce/money";
 
@@ -25,6 +25,7 @@ describe("cart persistence", () => {
     created.cartIds.push(cart.id);
 
     const found = await db.cart.findUnique({ where: { sessionToken: cart.sessionToken } });
+    assertFound(found);
     expect(found.id).toBe(cart.id);
     expect(found.currency).toBe("USD");
   });
@@ -45,6 +46,7 @@ describe("cart persistence", () => {
       data: { quantity: 3 },
     });
     const line = await db.cartItem.findFirst({ where: { cartId: cart.id, productId: product.id } });
+    assertFound(line);
     expect(line.quantity).toBe(3);
     expect(await db.cartItem.count({ where: { cartId: cart.id } })).toBe(1);
   });
@@ -100,6 +102,7 @@ describe("server-side price revalidation", () => {
       select: { quantity: true, product: { select: { price: true, availability: true, lifecycleStage: true } } },
     });
 
+    assertFound(line);
     // The CartItem stores only a quantity — there is nowhere for a stale price
     // to hide, which is why revalidation cannot be bypassed.
     expect(Object.keys(line)).not.toContain("unitPrice");
@@ -125,6 +128,7 @@ describe("server-side price revalidation", () => {
       where: { cartId: cart.id },
       select: { product: { select: { price: true, availability: true, lifecycleStage: true } } },
     });
+    assertFound(line);
     expect(evaluatePurchasability({
       lifecycleStage: line.product.lifecycleStage,
       availability: line.product.availability,
@@ -145,6 +149,7 @@ describe("server-side price revalidation", () => {
       where: { cartId: cart.id },
       select: { product: { select: { price: true, availability: true, lifecycleStage: true } } },
     });
+    assertFound(line);
     const verdict = evaluatePurchasability({
       lifecycleStage: line.product.lifecycleStage,
       availability: line.product.availability,

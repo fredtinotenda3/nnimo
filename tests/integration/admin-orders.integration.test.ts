@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createOrderFromCart, FulfilmentTransitionError, transitionFulfilment } from "@/lib/commerce/orders";
-import { CHECKOUT_INPUT, addLine, cleanup, db, makeCart, makeProduct, uid } from "./helpers";
+import { CHECKOUT_INPUT, addLine, assertFound, cleanup, db, makeCart, makeProduct, uid } from "./helpers";
 
 const created = {
   orderIds: [] as string[],
@@ -68,6 +68,7 @@ describe("fulfilment transitions", () => {
       where: { id: order.id },
       select: { fulfilmentStatus: true, confirmedAt: true, readyAt: true, deliveredAt: true },
     });
+    assertFound(persisted);
     expect(persisted.fulfilmentStatus).toBe("COLLECTED");
     expect(persisted.confirmedAt).toBeTruthy();
     expect(persisted.readyAt).toBeTruthy();
@@ -91,6 +92,7 @@ describe("fulfilment transitions", () => {
       where: { id: order.id },
       select: { fulfilmentStatus: true, trackingRef: true, shippedAt: true, deliveredAt: true },
     });
+    assertFound(persisted);
     expect(persisted.fulfilmentStatus).toBe("DELIVERED");
     expect(persisted.trackingRef).toBe("TRK-123");
     expect(persisted.shippedAt).toBeTruthy();
@@ -107,6 +109,7 @@ describe("fulfilment transitions", () => {
       where: { id: order.id },
       select: { fulfilmentStatus: true },
     });
+    assertFound(persisted);
     expect(persisted.fulfilmentStatus).toBe("PENDING");
   });
 
@@ -154,6 +157,7 @@ describe("audit log", () => {
       orderBy: { createdAt: "desc" },
       select: { action: true, userId: true, createdAt: true },
     });
+    assertFound(entry);
     expect(entry.action).toBeTruthy();
     expect(entry.userId).toBe(adminUserId);
     expect(entry.createdAt).toBeTruthy();
@@ -162,6 +166,7 @@ describe("audit log", () => {
       where: { id: order.id },
       select: { fulfilmentStatus: true, cancelledAt: true },
     });
+    assertFound(persisted);
     expect(persisted.fulfilmentStatus).toBe("CANCELLED");
     expect(persisted.cancelledAt).toBeTruthy();
   });

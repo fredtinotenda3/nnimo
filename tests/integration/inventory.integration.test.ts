@@ -7,7 +7,7 @@ import {
   releaseReservation,
   reserveStock,
 } from "@/lib/inventory";
-import { CHECKOUT_INPUT, addLine, cleanup, db, makeCart, makeProduct, uid } from "./helpers";
+import { CHECKOUT_INPUT, addLine, assertFound, cleanup, db, makeCart, makeProduct, uid } from "./helpers";
 
 const created = { orderIds: [] as string[], cartIds: [] as string[], productIds: [] as string[], customerEmails: [] as string[] };
 
@@ -26,6 +26,7 @@ describe("stock reservation", () => {
     await reserveStock({ productId: product.id, quantity: 2, orderId: "manual-test" });
 
     const inventory = await db.inventory.findUnique({ where: { productId: product.id } });
+    assertFound(inventory);
     expect(inventory.onHand).toBe(5);
     expect(inventory.reserved).toBe(2);
     expect(availableQuantity(inventory)).toBe(3);
@@ -45,6 +46,7 @@ describe("stock reservation", () => {
     ).rejects.toBeInstanceOf(InsufficientStockError);
 
     const inventory = await db.inventory.findUnique({ where: { productId: product.id } });
+    assertFound(inventory);
     expect(inventory.reserved).toBe(0);
   });
 
@@ -63,6 +65,7 @@ describe("stock reservation", () => {
     expect(fulfilled).toHaveLength(1);
 
     const inventory = await db.inventory.findUnique({ where: { productId: product.id } });
+    assertFound(inventory);
     expect(inventory.reserved).toBe(1);
     expect(availableQuantity(inventory)).toBe(0);
   });
@@ -75,6 +78,7 @@ describe("stock reservation", () => {
     await commitReservation({ productId: product.id, quantity: 1, orderId: "commit-test" });
 
     const inventory = await db.inventory.findUnique({ where: { productId: product.id } });
+    assertFound(inventory);
     expect(inventory.onHand).toBe(3);
     expect(inventory.reserved).toBe(0);
     expect(availableQuantity(inventory)).toBe(3);
@@ -93,6 +97,7 @@ describe("stock reservation", () => {
     });
 
     const inventory = await db.inventory.findUnique({ where: { productId: product.id } });
+    assertFound(inventory);
     expect(inventory.reserved).toBe(0);
     expect(availableQuantity(inventory)).toBe(3);
   });
@@ -116,6 +121,7 @@ describe("reservation during order creation", () => {
     created.orderIds.push(order.id);
 
     const inventory = await db.inventory.findUnique({ where: { productId: product.id } });
+    assertFound(inventory);
     expect(inventory.reserved).toBe(2);
     expect(availableQuantity(inventory)).toBe(1);
 
@@ -123,7 +129,7 @@ describe("reservation during order creation", () => {
     const movement = await db.inventoryMovement.findFirst({
       where: { productId: product.id, orderId: order.id, type: "RESERVATION" },
     });
-    expect(movement).toBeTruthy();
+    assertFound(movement);
     expect(movement.quantity).toBe(-2);
   });
 

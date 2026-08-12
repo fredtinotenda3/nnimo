@@ -36,6 +36,22 @@ if (!/test/i.test(databaseName)) {
 
 export const db = new PrismaClient({ datasourceUrl: url } as never);
 
+/**
+ * Narrows a `findUnique`/`findFirst` result from `T | null` to `T`.
+ *
+ * `noUncheckedIndexedAccess`/strict null checks mean every `findUnique` call
+ * types as possibly-null even in a test where we just created the row and
+ * know it exists. Asserting here (once, right after the fetch) is the correct
+ * fix — it documents the assumption and gives a real failure message if it's
+ * ever wrong, instead of scattering `!` non-null assertions through every
+ * `expect(...)` line that follows.
+ */
+export function assertFound<T>(value: T | null | undefined, message = "Expected row to exist"): asserts value is T {
+  if (value === null || value === undefined) {
+    throw new Error(message);
+  }
+}
+
 /** A unique suffix per test run, so parallel runs cannot collide. */
 export function uid(prefix = "t"): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
@@ -98,9 +114,12 @@ export async function makeCart(currency = "USD"): Promise<{ id: string; sessionT
   const sessionToken = uid("sess");
   const cart = await db.cart.create({
     data: { sessionToken, currency },
-    select: { id: true, sessionToken: true },
+    select: { id: true },
   });
-  return cart;
+  // Cart.sessionToken is nullable in the schema (customer-linked carts have
+  // none), but this helper always sets one — return the value we just wrote
+  // rather than the nullable column, so callers get a real `string`.
+  return { id: cart.id, sessionToken };
 }
 
 export async function addLine(cartId: string, productId: string, quantity = 1) {

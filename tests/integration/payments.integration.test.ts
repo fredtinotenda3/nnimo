@@ -7,7 +7,7 @@ import {
   verifyAndApplyPayment,
 } from "@/lib/commerce/payment-service";
 import { setSandboxOutcome } from "@/lib/payments/sandbox-provider";
-import { CHECKOUT_INPUT, addLine, cleanup, db, makeCart, makeProduct, uid } from "./helpers";
+import { CHECKOUT_INPUT, addLine, assertFound, cleanup, db, makeCart, makeProduct, uid } from "./helpers";
 
 const created = {
   orderIds: [] as string[],
@@ -59,6 +59,7 @@ describe("payment creation", () => {
       where: { id: paymentId },
       select: { status: true, amount: true, currency: true, provider: true, idempotencyKey: true, verifiedAt: true },
     });
+    assertFound(payment);
     expect(payment.status).toBe("PENDING");
     expect(payment.provider).toBe("sandbox");
     expect(Number(payment.amount.toString())).toBe(150);
@@ -80,6 +81,7 @@ describe("payment creation", () => {
       where: { id: order.id },
       select: { paymentStatus: true, paidAt: true },
     });
+    assertFound(persisted);
     expect(persisted.paymentStatus).toBe("UNPAID");
     expect(persisted.paidAt).toBeNull();
   });
@@ -102,6 +104,7 @@ describe("payment verification", () => {
       where: { id: order.id },
       select: { paymentStatus: true, paidAt: true },
     });
+    assertFound(persisted);
     expect(persisted.paymentStatus).toBe("PAID");
     expect(persisted.paidAt).toBeTruthy();
   });
@@ -126,6 +129,7 @@ describe("payment verification", () => {
       where: { id: order.id },
       select: { paymentStatus: true },
     });
+    assertFound(persisted);
     expect(persisted.paymentStatus).toBe("PAID");
   });
 
@@ -145,6 +149,7 @@ describe("payment verification", () => {
       where: { id: order.id },
       select: { paymentStatus: true, paidAt: true },
     });
+    assertFound(persisted);
     expect(persisted.paymentStatus).not.toBe("PAID");
     expect(persisted.paidAt).toBeNull();
   });
@@ -195,10 +200,12 @@ describe("webhook idempotency", () => {
 
     await recordWebhookOnce({ provider: "sandbox", eventType: "payment.updated", idempotencyKey: key, payload: {} });
     let event = await db.paymentWebhookEvent.findUnique({ where: { idempotencyKey: key } });
+    assertFound(event);
     expect(event.processedAt).toBeNull();
 
     await markWebhookProcessed(key);
     event = await db.paymentWebhookEvent.findUnique({ where: { idempotencyKey: key } });
+    assertFound(event);
     expect(event.processedAt).toBeTruthy();
   });
 });

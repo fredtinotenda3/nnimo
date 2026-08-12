@@ -54,7 +54,7 @@ export async function completeSandboxPayment(formData: FormData): Promise<void> 
       currency: order.currency,
       fulfilmentMethod: order.fulfilmentMethod,
       deliveryPendingQuote: order.deliveryQuoteStatus === "PENDING_QUOTE",
-      lines: order.items.map((item: { productNameSnapshot: string; quantity: number; lineTotal: { toString(): string }; requiresProduction: boolean }) => ({
+      lines: order.items.map((item) => ({
         name: item.productNameSnapshot,
         quantity: item.quantity,
         lineTotalLabel: formatCents(toCents(item.lineTotal) ?? 0, order.currency),
