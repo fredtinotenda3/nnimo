@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import { useActionState } from "react";
-import { CHECKOUT_IDLE, placeOrderAction, type CheckoutState } from "@/app/(site)/checkout/actions";
+import { placeOrderAction, type CheckoutState } from "@/app/(site)/checkout/actions";
+import { CHECKOUT_IDLE } from "@/lib/checkout-constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -86,7 +87,7 @@ export function CheckoutForm() {
                   value={option.value}
                   checked={method === option.value}
                   onChange={() => setMethod(option.value)}
-                  className="accent-[var(--color-primary)]"
+                  className="accent-(--color-primary)"
                 />
                 <span className="text-heading-3">{option.title}</span>
               </span>
@@ -141,7 +142,7 @@ export function CheckoutForm() {
           <input
             type="checkbox"
             name="marketingConsent"
-            className="mt-1 accent-[var(--color-primary)]"
+            className="mt-1 accent-(--color-primary)"
           />
           <span className="text-body-sm text-muted-foreground">
             Email me occasionally about new collections. Not ticking this changes nothing

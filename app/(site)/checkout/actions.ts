@@ -13,6 +13,7 @@ import { sendOrderEmail } from "@/lib/email/order-emails";
 import { fieldErrors } from "@/lib/inquiries";
 import { formatCents } from "@/lib/commerce/money";
 import { PaymentProviderNotConfiguredError } from "@/lib/payments/types";
+import { CHECKOUT_IDLE } from "@/lib/checkout-constants";
 
 export type CheckoutState = {
   status: "idle" | "error";
@@ -20,7 +21,6 @@ export type CheckoutState = {
   errors?: Record<string, string>;
 };
 
-export const CHECKOUT_IDLE: CheckoutState = { status: "idle", message: null };
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
