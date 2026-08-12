@@ -359,12 +359,27 @@ enum OrderPaymentStatus {
 
 enum OrderFulfilmentStatus {
   PENDING
+  // Payment settled and the studio has accepted the order, before production
+  // starts. Phase 3 addition.
+  CONFIRMED
   IN_PRODUCTION
   READY
   SHIPPED
   DELIVERED
   COLLECTED
   CANCELLED
+}
+
+/// Whether the delivery fee on an order is known.
+/// Nnino has no delivery rate card yet, so an order placed for delivery is
+/// created with PENDING_QUOTE and shippingTotal 0 — the total shown to the
+/// customer is explicitly marked as excluding delivery until the studio quotes
+/// it. When zones/rates arrive later, QUOTED becomes the norm and this enum is
+/// the seam they plug into, with no change to order creation.
+enum DeliveryQuoteStatus {
+  NOT_REQUIRED
+  PENDING_QUOTE
+  QUOTED
 }
 
 enum FulfilmentMethod {
@@ -394,6 +409,7 @@ model Order {
 
   fulfilmentMethod FulfilmentMethod?
   deliveryAddress  Json?
+  deliveryQuoteStatus DeliveryQuoteStatus @default(NOT_REQUIRED)
   trackingRef      String?
   shippedAt        DateTime?
   deliveredAt      DateTime?
@@ -410,8 +426,23 @@ model Order {
   landingPageId String?
   landingPage  LandingPage?  @relation(fields: [landingPageId], references: [id], onDelete: SetNull)
 
+  /// One cart converts to at most one order. The unique constraint is what
+  /// actually prevents a double-submitted checkout creating two orders — an
+  /// application-level "have we made one already?" check races; a unique index
+  /// does not. Deliberately no FK: the cart is cleared once converted, and this
+  /// value must outlive it to keep protecting the invariant.
+  cartId String? @unique
+
+  /// Unguessable key for the guest confirmation page and emailed order links.
+  /// Order numbers are sequential and therefore enumerable, so they must never
+  /// be the only thing between a stranger and a customer's address.
+  accessToken String @unique
+
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+  paidAt      DateTime?
+  confirmedAt DateTime?
+  readyAt     DateTime?
   cancelledAt DateTime?
 
   items               OrderItem[]

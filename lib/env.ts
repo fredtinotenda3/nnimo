@@ -28,6 +28,18 @@ const schema = z.object({
   MEDIA_S3_ACCESS_KEY_ID: z.string().min(1).optional(),
   MEDIA_S3_SECRET_ACCESS_KEY: z.string().min(1).optional(),
   MEDIA_S3_PUBLIC_URL: z.string().url().optional(),
+
+  // --- Commerce (Phase 3) --------------------------------------------------
+  // Defaults to the sandbox provider so a fresh checkout never accidentally
+  // points at a live payment network.
+  PAYMENT_PROVIDER: z.enum(["sandbox", "paynow"]).default("sandbox"),
+  PAYNOW_INTEGRATION_ID: z.string().min(1).optional(),
+  PAYNOW_INTEGRATION_KEY: z.string().min(1).optional(),
+  PAYNOW_RETURN_URL: z.string().url().optional(),
+  PAYNOW_RESULT_URL: z.string().url().optional(),
+
+  EMAIL_TRANSPORT: z.enum(["dev", "none"]).default("dev"),
+  EMAIL_FROM: z.string().min(3).default("Nnino Ceramics <orders@example.invalid>"),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -55,6 +67,24 @@ if (base.MEDIA_DRIVER === "s3") {
   if (missing.length > 0) {
     throw new Error(
       `MEDIA_DRIVER=s3 requires: ${missing.join(", ")}. Set them or use MEDIA_DRIVER=local.`,
+    );
+  }
+}
+
+// Paynow needs its whole credential set or none of it. A half-configured
+// provider that silently fails mid-checkout is worse than refusing to boot.
+if (base.PAYMENT_PROVIDER === "paynow") {
+  const required = [
+    "PAYNOW_INTEGRATION_ID",
+    "PAYNOW_INTEGRATION_KEY",
+    "PAYNOW_RETURN_URL",
+    "PAYNOW_RESULT_URL",
+  ] as const;
+  const missing = required.filter((key) => !base[key]);
+  if (missing.length > 0) {
+    throw new Error(
+      `PAYMENT_PROVIDER=paynow requires: ${missing.join(", ")}. ` +
+        "Set them, or use PAYMENT_PROVIDER=sandbox until the credentials arrive.",
     );
   }
 }

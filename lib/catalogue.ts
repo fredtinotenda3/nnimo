@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { CollectionStatus, ProductLifecycleStage } from "@/lib/generated/prisma/enums";
 import type { ProductAvailability } from "@/lib/generated/prisma/enums";
 import type { Prisma } from "@/lib/generated/prisma/client";
+import type { DecimalLike } from "@/lib/money";
 
 /**
  * The single place the public/draft boundary is defined.
@@ -312,7 +313,26 @@ export function availabilityLabel(value: ProductAvailability | null): string | n
   return value ? AVAILABILITY_LABEL[value] : null;
 }
 
-/** Whether a piece can be added to a cart at all. Cart itself lands in Phase 3. */
-export function isPurchasable(value: ProductAvailability | null): boolean {
-  return value === "IN_STOCK" || value === "LOW_STOCK" || value === "MADE_TO_ORDER";
+/**
+ * Whether a piece can be added to a cart at all.
+ *
+ * Two independent conditions, both required: the business must have set an
+ * availability that means "sellable" (not OUT_OF_STOCK/CUSTOM_ONLY/COMING_SOON),
+ * AND a verified price must exist. A product can be published with a known
+ * availability but no confirmed price yet — that combination must never be
+ * purchasable, or the storefront would let someone buy something at a price
+ * nobody actually set. See docs/architecture and the Phase 3 brief.
+ */
+export function isPurchasable(
+  availability: ProductAvailability | null,
+  price?: DecimalLike | null,
+): boolean {
+  const availabilityOk =
+    availability === "IN_STOCK" || availability === "LOW_STOCK" || availability === "MADE_TO_ORDER";
+  if (!availabilityOk) return false;
+  // price is optional only for call sites that already know it's present
+  // (e.g. a query that filtered on price not null). Any call site that has a
+  // product's price on hand should always pass it.
+  if (price === undefined) return true;
+  return price !== null;
 }

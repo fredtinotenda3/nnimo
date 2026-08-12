@@ -13,10 +13,16 @@ import { formatDimensions, formatPriceOrRequest, formatWeight } from "@/lib/mone
 import { resolveMediaUrl } from "@/lib/media";
 import { whatsappLink } from "@/lib/brand";
 import { breadcrumbJsonLd, productJsonLd } from "@/lib/seo";
+import {
+  PURCHASABILITY_MESSAGE,
+  evaluatePurchasability,
+} from "@/lib/commerce/purchasability";
 import { Section } from "@/components/ui/section";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MediaImage, type MediaRef } from "@/components/catalogue/media-image";
+import { AddToCart } from "@/components/commerce/add-to-cart";
+import { EnquireAboutPrice } from "@/components/commerce/enquire-about-price";
 import { ProductCard } from "@/components/catalogue/product-card";
 
 export const dynamic = "force-dynamic";
@@ -71,6 +77,13 @@ export default async function ProductDetailPage({ params }: Params) {
     }),
     getDefaultLeadTimeDays(),
   ]);
+
+  const verdict = evaluatePurchasability({
+    lifecycleStage: "PUBLISHED", // getPublicProductBySlug already filtered on this
+    availability: product.availability,
+    price: product.price,
+    inventory: product.inventory,
+  });
 
   const price = formatPriceOrRequest(product.price, product.currency);
   const availability = availabilityLabel(product.availability);
@@ -244,14 +257,27 @@ export default async function ProductDetailPage({ params }: Params) {
               </p>
             ) : null}
 
-            {/* Cart and checkout are Phase 3. Until then every piece routes to a
-                real conversation with the studio rather than a dead button. */}
+            {/*
+              Purchasability is decided on the SERVER, by the same
+              evaluatePurchasability() the cart and checkout call. A piece with no
+              source-verified price can never render add-to-cart, and the branch is
+              not a UI preference — addToCart re-evaluates it and refuses
+              regardless of what was rendered here.
+            */}
             <div className="mt-10 flex flex-col gap-3">
-              <Button asChild size="lg">
-                <Link href={`/custom?piece=${encodeURIComponent(product.slug)}`}>
-                  Enquire about this piece
-                </Link>
-              </Button>
+              {verdict.purchasable ? (
+                <AddToCart
+                  slug={product.slug}
+                  madeToOrder={product.availability === "MADE_TO_ORDER"}
+                />
+              ) : (
+                <EnquireAboutPrice
+                  productName={product.name}
+                  slug={product.slug}
+                  reason={PURCHASABILITY_MESSAGE[verdict.reason]}
+                />
+              )}
+
               <Button asChild size="lg" variant="outline">
                 <a
                   href={whatsappLink(enquiryMessage)}
@@ -261,10 +287,6 @@ export default async function ProductDetailPage({ params }: Params) {
                   WhatsApp the studio
                 </a>
               </Button>
-              <p className="text-metadata mt-2 text-muted-foreground">
-                Online checkout is coming. For now the studio confirms availability and
-                delivery with you directly.
-              </p>
             </div>
 
             {product.careInstructions ? (

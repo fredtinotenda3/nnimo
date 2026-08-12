@@ -8,9 +8,18 @@ import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Container } from "@/components/ui/container";
 import { PRIMARY_NAV } from "@/lib/navigation";
+import { CartTrigger } from "@/components/commerce/cart-trigger";
 import { SiteLogo } from "@/components/site/site-logo";
 
 export interface SiteHeaderProps {
+  /**
+   * Cart line count, resolved on the server by app/(site)/layout.tsx.
+   *
+   * Passed in rather than fetched here: the header is a client component, and a
+   * client-side fetch on every page would both flash an empty badge and add a
+   * round trip to every navigation.
+   */
+  cartCount?: number;
   /**
    * Whether the page beneath begins with full-bleed imagery. When true the bar
    * starts transparent with light text and transitions to the warm surface on
@@ -19,7 +28,7 @@ export interface SiteHeaderProps {
   overHero?: boolean;
 }
 
-function SiteHeader({ overHero = false }: SiteHeaderProps) {
+function SiteHeader({ overHero = false, cartCount = 0 }: SiteHeaderProps) {
   const [scrolled, setScrolled] = React.useState(false);
   const [menuOpen, setMenuOpen] = React.useState(false);
   const pathname = usePathname();
@@ -123,7 +132,10 @@ function SiteHeader({ overHero = false }: SiteHeaderProps) {
               </ul>
             </nav>
 
-            <button
+            <div className="flex items-center gap-1">
+              <CartTrigger count={cartCount} solid={solid} />
+
+              <button
               type="button"
               onClick={() => setMenuOpen((open) => !open)}
               aria-expanded={menuOpen}
@@ -138,8 +150,9 @@ function SiteHeader({ overHero = false }: SiteHeaderProps) {
               ) : (
                 <Menu className="h-5 w-5" aria-hidden="true" />
               )}
-              <span className="sr-only">{menuOpen ? "Close menu" : "Open menu"}</span>
-            </button>
+                <span className="sr-only">{menuOpen ? "Close menu" : "Open menu"}</span>
+              </button>
+            </div>
           </div>
         </Container>
       </header>

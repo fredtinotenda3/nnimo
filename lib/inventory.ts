@@ -72,18 +72,35 @@ export function deriveAvailability(
  * A CHECK constraint (see prisma/sql/0002_constraints.sql) enforces
  * `reserved <= onHand` at the database level as the final backstop.
  */
-export async function reserveStock(params: {
-  productId: string;
-  quantity: number;
-  orderId: string;
-}): Promise<void> {
-  const { productId, quantity, orderId } = params;
+/**
+ * Minimal surface of a Prisma transaction client, so reservation can be composed
+ * into a caller's transaction (order creation) instead of opening its own.
+ */
+export type InventoryTx = {
+  $executeRaw: (query: TemplateStringsArray, ...values: unknown[]) => Promise<number>;
+  inventory: { findUnique: (args: unknown) => Promise<{ onHand: number; reserved: number } | null> };
+  inventoryMovement: { create: (args: unknown) => Promise<unknown> };
+};
+
+/**
+ * Reserves stock inside an EXISTING transaction.
+ *
+ * This variant exists because order creation must reserve stock atomically with
+ * writing the order. Calling the self-contained `reserveStock` from inside
+ * `db.$transaction` would open a second, independent transaction on another
+ * connection: the reservation could commit while the order rolled back, or the
+ * reverse, leaving stock reserved against an order that does not exist.
+ */
+export async function reserveStockWithin(
+  tx: InventoryTx,
+  params: { productId: string; quantity: number; orderId: string; reason?: string },
+): Promise<void> {
+  const { productId, quantity, orderId, reason = "Reserved at checkout" } = params;
   if (!Number.isInteger(quantity) || quantity <= 0) {
     throw new Error(`Reservation quantity must be a positive integer, received ${quantity}.`);
   }
 
-  await db.$transaction(async (tx) => {
-    const updated = await tx.$executeRaw`
+  const updated = await tx.$executeRaw`
       UPDATE "Inventory"
          SET "reserved" = "reserved" + ${quantity},
              "updatedAt" = NOW()
@@ -91,24 +108,45 @@ export async function reserveStock(params: {
          AND "onHand" - "reserved" >= ${quantity}
     `;
 
-    if (updated === 0) {
-      const inventory = await tx.inventory.findUnique({ where: { productId } });
-      throw new InsufficientStockError(
-        productId,
-        quantity,
-        inventory ? availableQuantity(inventory) : 0,
-      );
-    }
+  if (updated === 0) {
+    const inventory = await tx.inventory.findUnique({ where: { productId } });
+    throw new InsufficientStockError(
+      productId,
+      quantity,
+      inventory ? availableQuantity(inventory) : 0,
+    );
+  }
 
-    await tx.inventoryMovement.create({
-      data: {
-        productId,
-        type: InventoryMovementType.RESERVATION,
-        quantity: -quantity,
-        orderId,
-        reason: "Reserved at checkout",
-      },
-    });
+  await tx.inventoryMovement.create({
+    data: {
+      productId,
+      type: InventoryMovementType.RESERVATION,
+      quantity: -quantity,
+      orderId,
+      reason,
+    },
+  });
+}
+
+/**
+ * Reserves stock for an order.
+ *
+ * Overselling is prevented by the conditional UPDATE rather than by
+ * read-then-write: `reserved = reserved + qty WHERE onHand - reserved >= qty`
+ * is evaluated by Postgres under a row lock, so two simultaneous checkouts for
+ * the last piece cannot both succeed. A read followed by a write would let both
+ * pass their check before either wrote.
+ *
+ * A CHECK constraint (see prisma/sql/0002_constraints.sql) enforces
+ * `reserved <= onHand` at the database level as the final backstop.
+ */
+export async function reserveStock(params: {
+  productId: string;
+  quantity: number;
+  orderId: string;
+}): Promise<void> {
+  await db.$transaction(async (tx) => {
+    await reserveStockWithin(tx as unknown as InventoryTx, params);
   });
 }
 

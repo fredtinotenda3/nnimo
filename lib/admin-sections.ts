@@ -13,7 +13,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   { label: "Collections",    href: "/admin/collections",    permission: "collection:read",    built: true  },
   { label: "Team",           href: "/admin/team",           permission: "artist:read",        built: true  },
   { label: "Inventory",      href: "/admin/inventory",      permission: "inventory:read",     built: false },
-  { label: "Orders",         href: "/admin/orders",         permission: "order:read",         built: false },
+  { label: "Orders",         href: "/admin/orders",         permission: "order:read",         built: true },
   { label: "Customers",      href: "/admin/customers",      permission: "customer:read",      built: false },
   { label: "Custom orders",  href: "/admin/custom-orders",  permission: "custom_order:read",  built: false },
   { label: "Wholesale",      href: "/admin/wholesale",      permission: "wholesale:read",     built: false },
