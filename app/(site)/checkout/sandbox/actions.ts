@@ -62,5 +62,5 @@ export async function completeSandboxPayment(formData: FormData): Promise<void> 
     });
   }
 
-  redirect(`/orders/${encodeURIComponent(orderNumber)}?token=${token}`);
+  redirect(`/orders/${encodeURIComponent(token)}`);
 }

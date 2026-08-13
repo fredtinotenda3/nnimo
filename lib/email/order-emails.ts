@@ -19,8 +19,9 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
 function orderUrl(context: OrderEmailContext): string {
   // The token, not the order number: order numbers are sequential and therefore
-  // enumerable.
-  return `${siteUrl}/orders/${encodeURIComponent(context.orderNumber)}?token=${context.accessToken}`;
+  // enumerable. The page reads this from the path segment ([accessToken]), not
+  // a query param.
+  return `${siteUrl}/orders/${encodeURIComponent(context.accessToken)}`;
 }
 
 function itemLines(context: OrderEmailContext): string {
