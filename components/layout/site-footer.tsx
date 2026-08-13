@@ -31,7 +31,7 @@ function SiteFooter() {
             </h2>
             <ul className="mt-5 flex flex-col gap-3">
               {PRIMARY_NAV.map((item) => (
-                <li key={item.href}>
+                <li key={`${item.href}-${item.label}`}>
                   <Link
                     href={item.href}
                     className="text-body-sm text-foreground transition-colors hover:text-primary"
@@ -49,7 +49,7 @@ function SiteFooter() {
             </h2>
             <ul className="mt-5 flex flex-col gap-3">
               {FOOTER_BUYING_NAV.map((item) => (
-                <li key={item.href}>
+                <li key={`${item.href}-${item.label}`}>
                   <Link
                     href={item.href}
                     className="text-body-sm text-foreground transition-colors hover:text-primary"
