@@ -6,6 +6,14 @@ import { Role } from "@/lib/generated/prisma/enums";
  * refunds). Nnino is a ten-person business — a finer matrix would be
  * complexity nobody maintains, and unmaintained permissions drift into
  * everyone-gets-OWNER.
+ *
+ * Phase 4 added exactly one permission — `customer:write`, for editing consent
+ * and internal notes on a customer record. Everything else the admin CMS needs
+ * was already expressible: product/collection/artist/content/media/settings
+ * writes, custom_order writes and audit:read all existed from Phase 1. Sections
+ * that only read (the audit log, the customer directory) reuse the existing
+ * read permission rather than inventing a paired one nobody would revoke
+ * separately.
  */
 export const PERMISSIONS = [
   "dashboard:read",
@@ -19,6 +27,7 @@ export const PERMISSIONS = [
   "order:write",
   "order:refund",
   "customer:read",
+  "customer:write",
   "artist:read",
   "artist:write",
   "custom_order:read",
@@ -55,6 +64,7 @@ const ORDERS: Permission[] = [
   "order:read",
   "order:write",
   "customer:read",
+  "customer:write",
   "custom_order:read",
   "custom_order:write",
   "wholesale:read",

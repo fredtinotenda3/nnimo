@@ -34,6 +34,30 @@ const AUDITED_ACTIONS = [
   "payment.verified",
   "settings.update",
   "media.delete",
+
+  // --- Phase 4 (admin CMS) -------------------------------------------------
+  // Added only where a mutation is genuinely privileged: it changes what the
+  // public sees, touches customer data, or alters business configuration.
+  // Deliberately absent: reads, filter changes, and draft-to-draft edits of a
+  // record that is not published — auditing those would bury the entries that
+  // matter under noise.
+  "product.created",
+  "product.updated",
+  "product.images_updated",
+  "collection.created",
+  "collection.updated",
+  "collection.published",
+  "collection.unpublished",
+  "collection.products_updated",
+  "customer.updated",
+  "team.created",
+  "team.updated",
+  "content.updated",
+  "media.uploaded",
+  "media.updated",
+  "inquiry.status_change",
+  "inquiry.updated",
+  "order.note_updated",
 ] as const;
 
 export type AuditedAction = (typeof AUDITED_ACTIONS)[number];

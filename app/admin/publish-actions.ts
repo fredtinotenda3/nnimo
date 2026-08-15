@@ -73,9 +73,12 @@ export async function toggleCollectionPublished(formData: FormData) {
     data: { status: publishing ? "PUBLISHED" : "DRAFT" },
   });
 
+  // Phase 4 fix: this previously recorded "product.publish" against a
+  // Collection entity, which made the audit log lie about what happened. The
+  // dedicated collection actions now exist, so the correct one is used.
   await recordAudit({
     userId: user.id,
-    action: publishing ? "product.publish" : "product.unpublish",
+    action: publishing ? "collection.published" : "collection.unpublished",
     entityType: "Collection",
     entityId: id,
     metadata: { name: collection.name },

@@ -74,6 +74,7 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([userId])
   @@index([createdAt])
+  @@index([action])
 }
 
 // ----------------------------------------------------------------------------
@@ -98,6 +99,10 @@ model Media {
   mimeType  String?
   sizeBytes Int?
   sourceNote String? // e.g. "Nnimo.pdf catalogue p.3" — provenance for imported assets
+  /// The name the file arrived with. Never used to build a path (see
+  /// buildStorageKey) — it exists so the media library is searchable by
+  /// something a human recognises. Phase 4.
+  originalFilename String?
   createdAt DateTime             @default(now())
 
   productImages    ProductImage[]
@@ -106,8 +111,11 @@ model Media {
   campaignHeroes   Campaign[]            @relation("CampaignHero")
   landingHeroes    LandingPage[]         @relation("LandingHero")
   customInquiryRefs CustomOrderInquiryImage[]
+  productOgImages    Product[]    @relation("ProductOgImage")
+  collectionOgImages Collection[] @relation("CollectionOgImage")
 
   @@index([provider])
+  @@index([createdAt])
 }
 
 // ----------------------------------------------------------------------------
@@ -131,6 +139,16 @@ model Collection {
   status      CollectionStatus  @default(DRAFT)
   featured    Boolean           @default(false)
   sortOrder   Int               @default(0)
+
+  // SEO overrides (Phase 4). All nullable: when null the page falls back to the
+  // collection's own name/description, which is what Phases 1-3 already emitted.
+  // Never populated automatically — a metadata field the team did not write is
+  // one more place for invented copy to appear.
+  seoTitle       String?
+  seoDescription String?
+  ogImageId      String?
+  ogImage        Media?  @relation("CollectionOgImage", fields: [ogImageId], references: [id], onDelete: SetNull)
+
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 
@@ -139,6 +157,7 @@ model Collection {
 
   @@index([status])
   @@index([featured])
+  @@index([sortOrder])
 }
 
 model Category {
@@ -161,12 +180,18 @@ model Artist {
   featured    Boolean  @default(false)
   isActive    Boolean  @default(true)
   sortOrder   Int      @default(0)
+  /// Provenance and unresolved conflicts, surfaced in the admin rather than
+  /// silently resolved. Marion Moyo is listed as "Artist" in the catalogue and
+  /// as "Production Manager" on her business card; both are recorded here until
+  /// the studio says which is right. Phase 4.
+  sourceNote  String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   products Product[]
 
   @@index([isActive])
+  @@index([sortOrder])
 }
 
 // ----------------------------------------------------------------------------
@@ -226,6 +251,14 @@ model Product {
   featured  Boolean  @default(false)
   sourceNote String? // provenance, e.g. "Nnino Ceramics Brochure-1.pdf, Zebra Range"
 
+  // SEO overrides (Phase 4). Null means "fall back to name/description", which is
+  // the Phase 2 behaviour. Metadata is only ever emitted for PUBLISHED products,
+  // so filling these in on a draft cannot expose it.
+  seoTitle       String?
+  seoDescription String?
+  ogImageId      String?
+  ogImage        Media?  @relation("ProductOgImage", fields: [ogImageId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -240,6 +273,8 @@ model Product {
   @@index([availability])
   @@index([collectionId])
   @@index([featured])
+  @@index([updatedAt])
+  @@index([artistId])
 }
 
 model ProductImage {
@@ -251,7 +286,12 @@ model ProductImage {
   position  Int     @default(0)
   isPrimary Boolean @default(false)
 
+  /// One media file attaches to a product once. Without this, "associate
+  /// existing media" double-clicked produces two gallery entries pointing at the
+  /// same file, and the primary-image flag becomes ambiguous. Phase 4.
+  @@unique([productId, mediaId])
   @@index([productId])
+  @@index([productId, position])
 }
 
 // ----------------------------------------------------------------------------
@@ -313,6 +353,8 @@ model Customer {
 
   orders Order[]
   carts  Cart[]
+
+  @@index([createdAt])
 }
 
 // ----------------------------------------------------------------------------
@@ -560,6 +602,7 @@ model CustomOrderInquiry {
   referenceImages CustomOrderInquiryImage[]
 
   @@index([status])
+  @@index([createdAt])
 }
 
 model CustomOrderInquiryImage {
@@ -716,5 +759,9 @@ model ContentBlock {
 model Setting {
   key       String   @id // e.g. "production.default_lead_time_days"
   value     String
+  /// User.id of whoever last changed it. Deliberately not a relation: a setting
+  /// must outlive the account that set it, and AuditLog already carries the
+  /// full, joined history. Phase 4.
+  updatedBy String?
   updatedAt DateTime @updatedAt
 }

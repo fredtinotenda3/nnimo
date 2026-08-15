@@ -5,6 +5,8 @@ import { requirePermission } from "@/lib/session";
 import { formatCents, toCents } from "@/lib/commerce/money";
 import { FULFILMENT_LABEL, PAYMENT_LABEL } from "@/lib/commerce/fulfilment";
 import type { OrderSummaryView } from "@/lib/commerce/order-views";
+import { pageInfo, parsePagination, type SearchParams } from "@/lib/admin/query";
+import { Pagination } from "@/components/admin/list-controls";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -33,7 +35,7 @@ type OrderRow = OrderSummaryView;
 export default async function AdminOrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
+  searchParams: Promise<SearchParams>;
 }) {
   await requirePermission("order:read");
 
@@ -47,6 +49,10 @@ export default async function AdminOrdersPage({
   const payment = PAYMENT_VALUES.includes(paymentParam) ? paymentParam : "";
   const fulfilmentParam = first(raw.fulfilment);
   const fulfilment = FULFILMENT_VALUES.includes(fulfilmentParam) ? fulfilmentParam : "";
+  // Phase 4: the Phase 3 list capped at 100 rows and said so in a footnote,
+  // which stops being acceptable the moment there are more than 100 orders —
+  // the rest were simply unreachable. Now paginated in Postgres.
+  const pagination = parsePagination(raw);
 
   const where = {
     ...(q
@@ -64,10 +70,12 @@ export default async function AdminOrdersPage({
     ...(fulfilment ? { fulfilmentStatus: fulfilment as never } : {}),
   };
 
-  const orders: OrderRow[] = await db.order.findMany({
+  const [orders, total]: [OrderRow[], number] = await Promise.all([
+    db.order.findMany({
     where,
     orderBy: { createdAt: "desc" },
-    take: 100,
+    skip: pagination.skip,
+    take: pagination.take,
     select: {
       id: true,
       orderNumber: true,
@@ -81,8 +89,11 @@ export default async function AdminOrdersPage({
       customer: { select: { name: true, email: true } },
       _count: { select: { items: true } },
     },
-  });
+  }),
+    db.order.count({ where }),
+  ]);
 
+  const info = pageInfo(pagination, total);
   const filtered = Boolean(q || payment || fulfilment);
 
   return (
@@ -206,10 +217,8 @@ export default async function AdminOrdersPage({
         </Table>
       )}
 
-      {orders.length === 100 ? (
-        <p className="text-body-sm text-muted-foreground">
-          Showing the 100 most recent orders. Narrow with search or a status filter.
-        </p>
+      {orders.length > 0 ? (
+        <Pagination info={info} basePath="/admin/orders" params={raw} itemLabel="orders" />
       ) : null}
     </div>
   );
