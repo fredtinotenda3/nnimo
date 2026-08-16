@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { clientIdentity } from "@/lib/security/client-identity";
 import type {
   OrderFulfilmentStatus,
   OrderPaymentStatus,
@@ -74,6 +76,21 @@ export default async function OrderConfirmationPage({ params }: Params) {
   const { accessToken } = await params;
 
   if (!accessToken || accessToken.length > 100) notFound();
+
+  /**
+   * PHASE 5 ADDITION.
+   *
+   * The token is a UUIDv4, so brute force is already infeasible on entropy
+   * grounds — this is not what stops an attacker guessing it. What it does is
+   * cap the COST to us of someone trying: without it, an enumeration attempt is
+   * an unbounded stream of indexed database lookups on a force-dynamic route.
+   *
+   * A limited request is rendered as notFound() rather than an explicit
+   * rate-limit page, so the response is identical to a wrong token and reveals
+   * nothing about whether a guess was close.
+   */
+  const limit = await checkRateLimit("orderAccess", await clientIdentity());
+  if (!limit.allowed) notFound();
 
   const order: OrderView | null = await db.order.findUnique({
     where: { accessToken },

@@ -14,6 +14,9 @@ import {
 } from "@/lib/admin/forms";
 import { idParam, mediaMetadataSchema, mediaUploadMetadataSchema } from "@/lib/admin/schemas";
 import { MediaUploadError, createMediaFromUpload, deleteMedia, getMediaUsage } from "@/lib/admin/media";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { clientIdentity } from "@/lib/security/client-identity";
+import { logger } from "@/lib/logger";
 
 export { IDLE_FORM_STATE };
 
@@ -38,6 +41,14 @@ export async function uploadMediaAction(
   formData: FormData,
 ): Promise<AdminFormState> {
   const user = await requirePermission("media:write");
+
+  // Authenticated already, so this is not an access control — it bounds the
+  // damage an accidental loop or a compromised admin session can do to storage
+  // costs and the media library.
+  const limit = await checkRateLimit("mediaUpload", await clientIdentity());
+  if (!limit.allowed) {
+    return formError("That is a lot of uploads at once. Please wait a moment and try again.");
+  }
 
   const metadata = mediaUploadMetadataSchema.safeParse({
     altText: field(formData, "altText"),
@@ -65,7 +76,7 @@ export async function uploadMediaAction(
     if (error instanceof MediaUploadError) {
       return formError(error.message, { file: error.message });
     }
-    console.error("[admin/media] upload failed", error);
+    logger.error("media.upload_failed", { userId: user.id, error });
     return formError("The image could not be uploaded. Please try again.");
   }
 

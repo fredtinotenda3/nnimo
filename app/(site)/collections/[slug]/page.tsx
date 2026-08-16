@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { getPublicCollectionBySlug, getRelatedCollections } from "@/lib/catalogue";
 import { resolveMediaUrl } from "@/lib/media";
 import { breadcrumbJsonLd } from "@/lib/seo";
+import { serialiseJsonLd } from "@/lib/security/json-ld";
 import { Container } from "@/components/ui/container";
 import { Section } from "@/components/ui/section";
 import { Button } from "@/components/ui/button";
@@ -60,7 +61,7 @@ export default async function CollectionDetailPage({ params }: Params) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(
+          __html: serialiseJsonLd(
             breadcrumbJsonLd([
               { name: "Home", path: "/" },
               { name: "Collections", path: "/collections" },

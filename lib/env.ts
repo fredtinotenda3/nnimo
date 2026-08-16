@@ -38,8 +38,43 @@ const schema = z.object({
   PAYNOW_RETURN_URL: z.string().url().optional(),
   PAYNOW_RESULT_URL: z.string().url().optional(),
 
-  EMAIL_TRANSPORT: z.enum(["dev", "none"]).default("dev"),
+  EMAIL_TRANSPORT: z.enum(["dev", "none", "resend"]).default("dev"),
   EMAIL_FROM: z.string().min(3).default("Nnino Ceramics <orders@example.invalid>"),
+  EMAIL_API_KEY: z.string().min(1).optional(),
+
+  // --- Phase 5: production hardening ---------------------------------------
+
+  /**
+   * Distributed rate-limit backend (Upstash Redis REST, or anything speaking the
+   * same shape). Optional: without it the limiter falls back to a per-instance
+   * in-memory counter, which is correct for development and materially weaker on
+   * Vercel. lib/rate-limit.ts logs a warning when that fallback happens in
+   * production rather than failing the boot — refusing to start a storefront
+   * because a cache is unconfigured would be the wrong trade.
+   */
+  RATE_LIMIT_REDIS_URL: z.string().url().optional(),
+  RATE_LIMIT_REDIS_TOKEN: z.string().min(1).optional(),
+
+  /**
+   * Header carrying the true client IP, when the platform is not Vercel.
+   * Left unset, lib/security/client-identity.ts uses x-forwarded-for's leftmost
+   * entry, which is correct on Vercel and wrong behind some other proxies.
+   */
+  TRUSTED_PROXY_HEADER: z.string().min(1).optional(),
+
+  /** Origin the active payment provider redirects to, for the CSP form-action. */
+  PAYMENT_REDIRECT_ORIGIN: z.string().url().optional(),
+
+  /** Ship the CSP in report-only mode for one deploy while tightening it. */
+  CSP_REPORT_ONLY: z.enum(["true", "false"]).optional(),
+
+  LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).optional(),
+
+  /**
+   * Deliberate, loud opt-in to the test payment provider in production.
+   * Named to be obvious in a log and in the Vercel dashboard.
+   */
+  PAYMENTS_ALLOW_SANDBOX_IN_PRODUCTION: z.enum(["true", "false"]).optional(),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -87,6 +122,47 @@ if (base.PAYMENT_PROVIDER === "paynow") {
         "Set them, or use PAYMENT_PROVIDER=sandbox until the credentials arrive.",
     );
   }
+}
+
+// The production email transport needs its key AND a from-address. A transport
+// selected but unable to send is worse than one that was never selected: order
+// confirmations would silently fall back to the log.
+if (base.EMAIL_TRANSPORT === "resend" && !base.EMAIL_API_KEY) {
+  throw new Error(
+    'EMAIL_TRANSPORT="resend" requires EMAIL_API_KEY. ' +
+      'Set it, or use EMAIL_TRANSPORT="dev" until the sending domain is configured.',
+  );
+}
+
+// The distributed limiter is all-or-nothing: a URL with no token cannot
+// authenticate, and would silently degrade to the in-memory limiter.
+if (Boolean(base.RATE_LIMIT_REDIS_URL) !== Boolean(base.RATE_LIMIT_REDIS_TOKEN)) {
+  throw new Error(
+    "RATE_LIMIT_REDIS_URL and RATE_LIMIT_REDIS_TOKEN must be set together, or neither.",
+  );
+}
+
+/**
+ * Production refuses to boot with the sandbox payment provider unless someone
+ * has explicitly said so.
+ *
+ * The sandbox provider lets a caller choose whether a payment "succeeded". That
+ * is exactly right in development and catastrophic in production, so reaching it
+ * takes a deliberate variable rather than an unnoticed default. The check lives
+ * here, at boot, rather than at checkout time — discovering it when a customer
+ * tries to pay is too late.
+ */
+if (
+  base.NODE_ENV === "production" &&
+  base.PAYMENT_PROVIDER === "sandbox" &&
+  base.PAYMENTS_ALLOW_SANDBOX_IN_PRODUCTION !== "true"
+) {
+  throw new Error(
+    'PAYMENT_PROVIDER="sandbox" in production. The sandbox provider lets the caller ' +
+      "choose the payment outcome and must never handle real orders. Configure a real " +
+      'provider, or set PAYMENTS_ALLOW_SANDBOX_IN_PRODUCTION="true" if this is a ' +
+      "staging environment that deliberately uses test payments.",
+  );
 }
 
 export const env = base;

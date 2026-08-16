@@ -13,6 +13,7 @@ import { formatDimensions, formatPriceOrRequest, formatWeight } from "@/lib/mone
 import { resolveMediaUrl } from "@/lib/media";
 import { whatsappLink } from "@/lib/brand";
 import { breadcrumbJsonLd, productJsonLd } from "@/lib/seo";
+import { serialiseJsonLd } from "@/lib/security/json-ld";
 import {
   PURCHASABILITY_MESSAGE,
   evaluatePurchasability,
@@ -118,7 +119,7 @@ export default async function ProductDetailPage({ params }: Params) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(
+          __html: serialiseJsonLd(
             productJsonLd({
               name: product.name,
               slug: product.slug,
@@ -136,7 +137,7 @@ export default async function ProductDetailPage({ params }: Params) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(
+          __html: serialiseJsonLd(
             breadcrumbJsonLd([
               { name: "Home", path: "/" },
               { name: "Shop", path: "/shop" },

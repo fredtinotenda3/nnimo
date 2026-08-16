@@ -1,6 +1,5 @@
 "use server";
 
-import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import {
   CONTACT_REQUEST_TYPE,
@@ -10,13 +9,19 @@ import {
   type FormState,
 } from "@/lib/inquiries";
 import { rateLimit } from "@/lib/rate-limit";
+import { clientIdentity } from "@/lib/security/client-identity";
+import { logger } from "@/lib/logger";
 
-/** Best-effort client key for throttling. Not an identity, just a bucket. */
+/**
+ * Throttling bucket for a submission.
+ *
+ * Phase 5 moved the IP handling into lib/security/client-identity.ts, which
+ * hashes the address with a server-side salt before it is used as a key. The
+ * limiter needs a stable, unique bucket; it does not need to know anyone's IP
+ * address, and a leaked rate-limit store should not be a list of visitor IPs.
+ */
 async function clientKey(prefix: string): Promise<string> {
-  const headerList = await headers();
-  const forwarded = headerList.get("x-forwarded-for");
-  const ip = forwarded?.split(",")[0]?.trim() || headerList.get("x-real-ip") || "unknown";
-  return `${prefix}:${ip}`;
+  return `${prefix}:${await clientIdentity()}`;
 }
 
 const GENERIC_FAILURE =
@@ -68,7 +73,7 @@ export async function submitCommission(
       },
     });
   } catch (error) {
-    console.error("[commission] failed to record enquiry", error);
+    logger.error("inquiry.commission_failed", { error });
     return { status: "error", message: GENERIC_FAILURE };
   }
 
@@ -115,7 +120,7 @@ export async function submitContact(
       },
     });
   } catch (error) {
-    console.error("[contact] failed to record message", error);
+    logger.error("inquiry.contact_failed", { error });
     return { status: "error", message: GENERIC_FAILURE };
   }
 

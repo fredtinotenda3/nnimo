@@ -4,6 +4,9 @@ import { db } from "@/lib/db";
 import { recordAudit } from "@/lib/audit";
 import { getActiveProvider, getProvider } from "@/lib/payments";
 import { toCents } from "@/lib/commerce/money";
+import { logger } from "@/lib/logger";
+import { commitOrderInventory, releaseOrderInventory } from "@/lib/commerce/inventory-lifecycle";
+import { evaluateVerification } from "@/lib/commerce/payment-verification";
 import type { VerifiedPaymentStatus } from "@/lib/payments/types";
 
 /**
@@ -35,6 +38,7 @@ export async function startPayment(params: {
       guestEmail: true,
       guestPhone: true,
       paymentStatus: true,
+      accessToken: true,
     },
   });
   if (!order) throw new Error("Order not found.");
@@ -68,6 +72,7 @@ export async function startPayment(params: {
     customerPhone: order.guestPhone,
     returnUrl: params.returnUrl,
     resultUrl: params.resultUrl,
+    orderAccessToken: order.accessToken,
     idempotencyKey,
   });
 
@@ -89,6 +94,15 @@ export async function startPayment(params: {
   await db.order.update({
     where: { id: order.id },
     data: { paymentStatus: "PENDING" },
+  });
+
+  logger.info("payment.initiated", {
+    orderId: order.id,
+    orderNumber: order.orderNumber,
+    provider: provider.id,
+    amountCents,
+    currency: order.currency,
+    attempt: attempts,
   });
 
   return { redirectUrl: intent.redirectUrl, paymentId: payment.id };
@@ -132,16 +146,40 @@ export async function verifyAndApplyPayment(params: {
     orderNumber: order.orderNumber,
   });
 
-  // If the provider states an amount, it must match ours. A mismatch is recorded
-  // and refused rather than accepted — underpayment is not payment.
+  /**
+   * The decision that matters: may this verification move the order to PAID?
+   *
+   * Lives in lib/commerce/payment-verification.ts as a pure function so every
+   * branch — underpayment, wrong currency, provider silent on both — is unit
+   * tested rather than only reachable through a database and a live provider.
+   */
   const expectedCents = toCents(order.total);
-  const amountMismatch =
-    verification.status === "PAID" &&
-    verification.amountCents !== null &&
-    expectedCents !== null &&
-    verification.amountCents !== expectedCents;
+  const decision = evaluateVerification({
+    reportedStatus: verification.status,
+    reportedAmountCents: verification.amountCents,
+    reportedCurrency: verification.currency,
+    expectedAmountCents: expectedCents,
+    expectedCurrency: order.currency,
+  });
 
-  const effectiveStatus: VerifiedPaymentStatus = amountMismatch ? "FAILED" : verification.status;
+  const { amountMismatch, currencyMismatch, rejected } = decision;
+  const effectiveStatus: VerifiedPaymentStatus = decision.status;
+
+  if (rejected) {
+    // A provider disagreeing with us about what was paid is a reconciliation
+    // incident, not a routine failure. Logged at error so it is alertable.
+    logger.error("payment.verification_mismatch", {
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      provider: provider.id,
+      amountMismatch,
+      currencyMismatch,
+      expectedCents,
+      reportedCents: verification.amountCents,
+      expectedCurrency: order.currency,
+      reportedCurrency: verification.currency,
+    });
+  }
 
   await db.$transaction(async (tx) => {
     await tx.payment.create({
@@ -165,6 +203,7 @@ export async function verifyAndApplyPayment(params: {
         rawPayload: {
           verification: verification.raw,
           ...(amountMismatch ? { amountMismatch: true } : {}),
+          ...(currencyMismatch ? { currencyMismatch: true } : {}),
         } as object,
         verifiedAt: effectiveStatus === "PAID" ? new Date() : null,
       },
@@ -182,20 +221,68 @@ export async function verifyAndApplyPayment(params: {
       });
     }
   }).catch(async (error: unknown) => {
-    // A unique-key collision means this exact outcome was already applied.
+    // A unique-key collision means this exact outcome was already applied by an
+    // earlier verification. Not an error — but it does mean the transaction
+    // above rolled back, so the state it would have written must already exist.
     const message = error instanceof Error ? error.message : String(error);
     if (!message.includes("Unique constraint") && !message.includes("idempotencyKey")) {
       throw error;
     }
+    logger.info("payment.verification_duplicate", {
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      provider: provider.id,
+      status: effectiveStatus,
+    });
   });
 
+  /**
+   * Resolve the order's stock reservations.
+   *
+   * Deliberately OUTSIDE the transaction above. Two reasons:
+   *
+   *   1. `commitReservation` and `releaseReservation` open their own
+   *      transactions, and nesting an independent transaction inside another
+   *      Prisma transaction runs it on a different connection — the exact bug
+   *      lib/inventory.ts warns about in `reserveStockWithin`.
+   *   2. Money has already moved. A stock bookkeeping failure must not roll back
+   *      a payment that genuinely settled; it must be recorded loudly and
+   *      corrected by an operator. Both helpers log at error and return counts
+   *      rather than throwing, which is what makes that possible.
+   *
+   * Both are idempotent against InventoryMovement, so a replayed callback or a
+   * second verification cannot double-commit or double-release.
+   */
   if (effectiveStatus === "PAID") {
+    await commitOrderInventory({ orderId: order.id, orderNumber: order.orderNumber });
+  } else if (effectiveStatus === "FAILED" || effectiveStatus === "CANCELLED") {
+    await releaseOrderInventory({
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      reason: `Payment ${effectiveStatus.toLowerCase()} for order ${order.orderNumber}`,
+    });
+  }
+
+  if (effectiveStatus === "PAID") {
+    logger.info("payment.verified", {
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      provider: provider.id,
+    });
     await recordAudit({
       userId: null,
       action: "payment.verified",
       entityType: "Order",
       entityId: order.id,
       metadata: { orderNumber: order.orderNumber, provider: provider.id },
+    });
+  } else {
+    logger.info("payment.verification_result", {
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      provider: provider.id,
+      status: effectiveStatus,
+      rejected,
     });
   }
 
@@ -234,10 +321,24 @@ export async function recordWebhookOnce(params: {
   }
 }
 
+/**
+ * Stamps an event as processed.
+ *
+ * Failure here is genuinely non-fatal — the business effect already happened and
+ * `processedAt` is a sweep marker, not a correctness guard (the UNIQUE key is).
+ * But it must not vanish: an event stuck with processedAt NULL is what the
+ * reconciliation sweep looks for, so a silent failure here creates a phantom
+ * "stuck" event that an operator will chase. Logged rather than swallowed.
+ */
 export async function markWebhookProcessed(idempotencyKey: string): Promise<void> {
-  await db.paymentWebhookEvent
-    .update({ where: { idempotencyKey }, data: { processedAt: new Date() } })
-    .catch(() => undefined);
+  try {
+    await db.paymentWebhookEvent.update({
+      where: { idempotencyKey },
+      data: { processedAt: new Date() },
+    });
+  } catch (error) {
+    logger.warn("webhook.mark_processed_failed", { error });
+  }
 }
 
 export function newPaymentReference(): string {

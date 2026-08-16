@@ -16,6 +16,7 @@ import {
   TEAM_PHOTO,
 } from "@/lib/brand-assets";
 import { organisationJsonLd } from "@/lib/seo";
+import { serialiseJsonLd } from "@/lib/security/json-ld";
 import { Container } from "@/components/ui/container";
 import { Section } from "@/components/ui/section";
 import { Button } from "@/components/ui/button";
@@ -53,7 +54,7 @@ export default async function HomePage() {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(organisationJsonLd()) }}
+        dangerouslySetInnerHTML={{ __html: serialiseJsonLd(organisationJsonLd()) }}
       />
 
       {/* ============================================================== 1. Hero

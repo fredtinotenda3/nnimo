@@ -3,7 +3,9 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { reserveStockWithin, type InventoryTx } from "@/lib/inventory";
+import { releaseOrderInventory } from "@/lib/commerce/inventory-lifecycle";
 import { recordAudit } from "@/lib/audit";
+import { logger } from "@/lib/logger";
 import {
   centsToDecimalString,
   multiplyCents,
@@ -383,6 +385,34 @@ export async function transitionFulfilment(params: {
       ...(to === "DELIVERED" || to === "COLLECTED" ? { deliveredAt: now } : {}),
       ...(to === "CANCELLED" ? { cancelledAt: now } : {}),
     },
+  });
+
+  /**
+   * PHASE 5 FIX — cancelling an order used to strand its stock.
+   *
+   * `transitionFulfilment` moved the order to CANCELLED and stopped there.
+   * Nothing released the reservations taken at checkout, so the stock stayed
+   * held against an order that would never be fulfilled and `available` fell
+   * permanently. Releasing here is the only place that knows a cancellation has
+   * actually been accepted by the state machine.
+   *
+   * Idempotent, so cancelling an order whose payment already failed (and which
+   * therefore already released) does nothing a second time.
+   */
+  if (to === "CANCELLED") {
+    await releaseOrderInventory({
+      orderId,
+      orderNumber: order.orderNumber,
+      reason: `Order ${order.orderNumber} cancelled`,
+    });
+  }
+
+  logger.info("order.fulfilment_transition", {
+    orderId,
+    orderNumber: order.orderNumber,
+    from,
+    to,
+    userId,
   });
 
   await recordAudit({

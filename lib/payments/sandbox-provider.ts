@@ -45,7 +45,15 @@ export const sandboxProvider: PaymentProvider = {
     return {
       providerRef,
       // A local page standing in for the gateway's hosted form.
-      redirectUrl: `/checkout/sandbox/${encodeURIComponent(request.orderNumber)}?ref=${providerRef}`,
+      //
+      // The access token is carried in the query string because the sandbox page
+      // now REQUIRES it (Phase 5 fix): the page used to look an order up by its
+      // sequential number and hand out the token, which let anyone walk the
+      // sequence and read every customer's details. The token is a secret the
+      // caller must already hold, not one the page will disclose.
+      redirectUrl:
+        `/checkout/sandbox/${encodeURIComponent(request.orderNumber)}` +
+        `?token=${encodeURIComponent(request.orderAccessToken)}&ref=${encodeURIComponent(providerRef)}`,
       raw: {
         provider: SANDBOX_PROVIDER_ID,
         providerRef,

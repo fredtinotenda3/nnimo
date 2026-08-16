@@ -33,6 +33,12 @@ export type CommerceKpis = {
   ordersReady: number;
   ordersRequiringProduction: number;
   currency: string;
+  /**
+   * Paid orders NOT counted in `revenueCents` because they are denominated in a
+   * different currency. Surfaced so an excluded order is visible rather than
+   * quietly missing from the total.
+   */
+  otherCurrencyOrders: number;
 };
 
 export type CatalogueKpis = {
@@ -91,7 +97,6 @@ export async function getCommerceKpis(): Promise<CommerceKpis> {
     ordersPaid,
     ordersAwaitingPayment,
     ordersPaymentPending,
-    paidAggregate,
     ordersAwaitingConfirmation,
     ordersInProduction,
     ordersReady,
@@ -102,11 +107,6 @@ export async function getCommerceKpis(): Promise<CommerceKpis> {
     db.order.count({ where: { paymentStatus: { in: [...PAID_STATUSES] } } }),
     db.order.count({ where: { paymentStatus: "UNPAID", fulfilmentStatus: { not: "CANCELLED" } } }),
     db.order.count({ where: { paymentStatus: "PENDING" } }),
-    db.order.aggregate({
-      where: { paymentStatus: { in: [...PAID_STATUSES] } },
-      _sum: { total: true },
-      _count: { _all: true },
-    }),
     db.order.count({ where: { fulfilmentStatus: "PENDING" } }),
     db.order.count({ where: { fulfilmentStatus: "IN_PRODUCTION" } }),
     db.order.count({ where: { fulfilmentStatus: "READY" } }),
@@ -122,8 +122,39 @@ export async function getCommerceKpis(): Promise<CommerceKpis> {
     }),
   ]);
 
-  const revenueCents = toCents(paidAggregate._sum.total ?? null) ?? 0;
-  const paidCount = paidAggregate._count._all;
+  /**
+   * PHASE 5O — revenue is scoped to ONE currency.
+   *
+   * The Phase 4 aggregate summed `total` across every paid order regardless of
+   * `Order.currency`. With a single currency that is correct by accident; the
+   * moment a second appears it produces a number that is not money in any
+   * currency — 100 USD plus 100 ZWG is not 200 of anything. `hasMixedCurrencies()`
+   * existed and warned in the UI, but the figure itself was still wrong, and a
+   * warned-about wrong number is still a wrong number on a dashboard someone
+   * makes decisions from.
+   *
+   * The fix is to filter rather than warn: only orders denominated in the
+   * reporting currency contribute. Orders in other currencies are counted
+   * separately by `otherCurrencyOrders` so they are visible rather than silently
+   * dropped — an excluded order the operator cannot see would be its own lie.
+   *
+   * No exchange rate is invented. Converting would require a rate the business
+   * has not supplied, and a made-up rate is worse than an honest per-currency
+   * split.
+   */
+  const [scopedAggregate, otherCurrencyOrders] = await Promise.all([
+    db.order.aggregate({
+      where: { paymentStatus: { in: [...PAID_STATUSES] }, currency },
+      _sum: { total: true },
+      _count: { _all: true },
+    }),
+    db.order.count({
+      where: { paymentStatus: { in: [...PAID_STATUSES] }, currency: { not: currency } },
+    }),
+  ]);
+
+  const revenueCents = toCents(scopedAggregate._sum.total ?? null) ?? 0;
+  const paidCount = scopedAggregate._count._all;
   const averageOrderValueCents = paidCount > 0 ? Math.round(revenueCents / paidCount) : 0;
 
   return {
@@ -140,6 +171,7 @@ export async function getCommerceKpis(): Promise<CommerceKpis> {
     ordersReady,
     ordersRequiringProduction,
     currency,
+    otherCurrencyOrders,
   };
 }
 

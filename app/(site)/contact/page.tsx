@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { BRAND, whatsappLink } from "@/lib/brand";
 import { organisationJsonLd } from "@/lib/seo";
+import { serialiseJsonLd } from "@/lib/security/json-ld";
 import { Container } from "@/components/ui/container";
 import { Section } from "@/components/ui/section";
 import { ContactForm } from "@/components/site/contact-form";
@@ -61,7 +62,7 @@ export default function ContactPage() {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(organisationJsonLd()) }}
+        dangerouslySetInnerHTML={{ __html: serialiseJsonLd(organisationJsonLd()) }}
       />
 
       <section className="bg-charcoal">

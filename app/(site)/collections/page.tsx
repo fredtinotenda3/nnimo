@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getPublicCollections } from "@/lib/catalogue";
 import { breadcrumbJsonLd } from "@/lib/seo";
+import { serialiseJsonLd } from "@/lib/security/json-ld";
 import { Section } from "@/components/ui/section";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -25,7 +26,7 @@ export default async function CollectionsPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(
+          __html: serialiseJsonLd(
             breadcrumbJsonLd([
               { name: "Home", path: "/" },
               { name: "Collections", path: "/collections" },

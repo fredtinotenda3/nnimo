@@ -57,6 +57,20 @@ export function getActiveProvider(): PaymentProvider {
   return configured;
 }
 
+/**
+ * The id checkout should build callback URLs against.
+ *
+ * Separate from `getActiveProvider()` because a callback URL has to be built
+ * even when the provider is not configured — the order is still created, and the
+ * URL is still recorded. Returning the id rather than the provider avoids
+ * throwing on a path that must not fail.
+ */
+export function getActiveProviderId(): string {
+  const preferred = process.env.PAYMENT_PROVIDER?.trim();
+  if (preferred && isKnownProvider(preferred)) return preferred;
+  return SANDBOX_PROVIDER_ID;
+}
+
 export function activeProviderOrNull(): PaymentProvider | null {
   try {
     return getActiveProvider();

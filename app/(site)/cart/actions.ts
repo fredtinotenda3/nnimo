@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { clientIdentity } from "@/lib/security/client-identity";
 import {
   addToCart,
   getCartView,
@@ -20,10 +22,26 @@ function revalidateCartSurfaces() {
   revalidatePath("/cart");
 }
 
+/**
+ * Cart mutation throttle.
+ *
+ * Loose by design — a real shopper clicks +/- repeatedly and must never be told
+ * off for it. This exists to stop a script creating thousands of Cart rows, each
+ * of which is a database write and a row that lives for thirty days.
+ */
+async function cartLimitReached(): Promise<boolean> {
+  const limit = await checkRateLimit("cart", await clientIdentity());
+  return !limit.allowed;
+}
+
 export async function addToCartAction(
   _previous: CartActionState,
   formData: FormData,
 ): Promise<CartActionState> {
+  if (await cartLimitReached()) {
+    return { error: "Please slow down a moment and try again.", ok: false };
+  }
+
   const slug = String(formData.get("slug") ?? "");
   const quantity = formData.get("quantity");
 
@@ -35,6 +53,8 @@ export async function addToCartAction(
 }
 
 export async function updateQuantityAction(formData: FormData): Promise<void> {
+  if (await cartLimitReached()) return;
+
   await updateCartItemQuantity({
     cartItemId: String(formData.get("cartItemId") ?? ""),
     quantity: formData.get("quantity"),
@@ -43,6 +63,8 @@ export async function updateQuantityAction(formData: FormData): Promise<void> {
 }
 
 export async function removeItemAction(formData: FormData): Promise<void> {
+  if (await cartLimitReached()) return;
+
   await removeCartItem(String(formData.get("cartItemId") ?? ""));
   revalidateCartSurfaces();
 }

@@ -44,7 +44,13 @@ const CHECK_CONSTRAINTS = [
   "order_pending_quote_has_no_fee",
 ];
 
-const INDEXES = ["product_image_single_primary", "inventory_low_stock"];
+const INDEXES = [
+  "product_image_single_primary",
+  "inventory_low_stock",
+  // Phase 5 — reconciliation support.
+  "payment_webhook_event_unprocessed",
+  "payment_provider_ref_idx",
+];
 const ORDER_COLUMNS = ["accessToken", "cartId", "deliveryQuoteStatus", "paidAt", "confirmedAt", "readyAt"];
 
 const client = new Client({ connectionString: url });

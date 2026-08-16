@@ -91,7 +91,7 @@ export default async function AdminDashboardPage({
             <StatTile
               label="Revenue"
               value={commerce.revenueFormatted}
-              note="Settled payments only"
+              note={`Settled payments, ${commerce.currency} only`}
             />
             <StatTile
               label="Average order"
@@ -102,9 +102,18 @@ export default async function AdminDashboardPage({
 
           {mixedCurrencies ? (
             <p className="text-body-sm border-l-2 border-ochre pl-3 text-muted-foreground">
-              Settled orders exist in more than one currency. The revenue and average
-              figures above add them together, which makes them unreliable — per-currency
-              totals are needed before these numbers can be trusted.
+              Settled orders exist in more than one currency. The figures above count{" "}
+              <strong>{commerce.currency} orders only</strong> — currencies are never added
+              together, because that produces a number that is not money in any currency.
+              {commerce.otherCurrencyOrders > 0 ? (
+                <>
+                  {" "}
+                  {commerce.otherCurrencyOrders} settled{" "}
+                  {commerce.otherCurrencyOrders === 1 ? "order is" : "orders are"} excluded
+                  and {commerce.otherCurrencyOrders === 1 ? "is" : "are"} not reflected
+                  here.
+                </>
+              ) : null}
             </p>
           ) : null}
         </AdminSection>

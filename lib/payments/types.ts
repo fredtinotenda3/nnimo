@@ -17,6 +17,16 @@ export type PaymentIntentRequest = {
   customerPhone: string | null;
   /** Where the customer returns after the provider's flow. */
   returnUrl: string;
+  /**
+   * The order's guest access token.
+   *
+   * Not a new disclosure: `returnUrl` already embeds it, because the customer
+   * has to land back on their own order page. Passing it explicitly means a
+   * provider adapter that needs to construct a URL of its own does not have to
+   * parse it back out of returnUrl, which is the kind of string surgery that
+   * breaks silently when a route changes.
+   */
+  orderAccessToken: string;
   /** Server-to-server callback. */
   resultUrl: string;
   /** Our key, echoed back so a retry cannot double-charge. */
