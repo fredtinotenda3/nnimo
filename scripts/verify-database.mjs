@@ -50,6 +50,8 @@ const INDEXES = [
   // Phase 5 — reconciliation support.
   "payment_webhook_event_unprocessed",
   "payment_provider_ref_idx",
+  // Phase 7 — revenue is measured on paidAt, which nothing else indexes.
+  "order_settled_paid_at",
 ];
 const ORDER_COLUMNS = ["accessToken", "cartId", "deliveryQuoteStatus", "paidAt", "confirmedAt", "readyAt"];
 

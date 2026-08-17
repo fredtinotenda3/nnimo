@@ -1,0 +1,44 @@
+-- ============================================================================
+-- Phase 7 — analytics support
+-- ============================================================================
+--
+-- ONE INDEX. The brief says to add indexes only when an actual query pattern
+-- justifies one, so this migration adds exactly the index that Phase 7's
+-- queries cannot be served by, and nothing speculative.
+--
+-- THE QUERY PATTERN
+--
+-- Revenue is measured on `paidAt` — when the money settled — not on `createdAt`,
+-- which is when the customer checked out. Every revenue figure and every point
+-- on the revenue chart therefore runs some form of:
+--
+--   SELECT ... FROM "Order"
+--    WHERE "paymentStatus" IN ('PAID','PARTIALLY_REFUNDED')
+--      AND "paidAt" >= $1 AND "paidAt" < $2
+--
+-- The existing indexes cannot serve this. `Order_paymentStatus_idx` has no date
+-- component, so it still visits every settled order to test the range;
+-- `Order_createdAt_idx` is on the wrong column entirely. Without this index the
+-- analytics dashboard sequentially scans "Order" several times per page load.
+--
+-- WHY PARTIAL
+--
+-- The predicate matches the WHERE clause exactly, so the index contains only
+-- rows that can ever contribute to revenue and Postgres can use it as an
+-- index-only range scan. Unpaid, failed and abandoned orders — which on a
+-- storefront are a large share of the table — are not indexed at all, so the
+-- index stays small and inserting an unpaid order at checkout does not touch
+-- it. This follows the pattern already established by `inventory_low_stock` and
+-- `payment_webhook_event_unprocessed` in the Phase 5 migration.
+--
+-- Partial indexes cannot be expressed in the Prisma schema, which is why this
+-- is raw SQL rather than an `@@index` — the same reason Phase 5 wrote its two
+-- partial indexes here. `npm run db:verify` checks for it by name.
+--
+-- IDEMPOTENT AND NON-DESTRUCTIVE. Nothing is dropped, renamed or retyped, no
+-- row is touched, and re-running is a no-op.
+-- ============================================================================
+
+CREATE INDEX IF NOT EXISTS "order_settled_paid_at"
+  ON "Order" ("paidAt")
+  WHERE "paymentStatus" IN ('PAID', 'PARTIALLY_REFUNDED');

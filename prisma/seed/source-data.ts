@@ -664,4 +664,14 @@ export const SETTINGS: { key: string; value: string; note: string }[] = [
     value: "USD",
     note: `[PRICELIST] quotes prices in US dollars.`,
   },
+  {
+    key: "business.timezone",
+    value: "Africa/Harare",
+    note:
+      "The studio is in Bulawayo, Zimbabwe (CAT, UTC+2, no daylight saving). " +
+      "Analytics measures the trading day against this zone rather than UTC, " +
+      "so an order placed at 01:00 in Bulawayo lands on the day the studio " +
+      "would say it did. Editable, because where the business operates is a " +
+      "business fact, not a constant.",
+  },
 ];

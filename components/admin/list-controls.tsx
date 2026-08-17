@@ -202,6 +202,13 @@ export function Pagination({
  * `tone="attention"` marks a number that represents work waiting — unpaid
  * orders, unpriced published pieces. It is a border, not a red panel: on a
  * dashboard where everything shouts, nothing is urgent.
+ *
+ * `trend` (Phase 7) is optional and purely additive. It renders a
+ * period-on-period change UNDER the figure, never as a colour on the figure
+ * itself — an arrow is a claim about the business, and lib/analytics/compute.ts
+ * decides whether the arithmetic supports one. When it does not, the caller
+ * passes `direction: "none"` with an explanatory label and the tile says why
+ * rather than showing a misleading zero.
  */
 export function StatTile({
   label,
@@ -209,17 +216,36 @@ export function StatTile({
   note,
   href,
   tone = "default",
+  trend,
 }: {
   label: string;
   value: string | number;
   note?: string;
   href?: string;
   tone?: "default" | "attention" | "positive";
+  trend?: { label: string; direction: "up" | "down" | "flat" | "none" };
 }) {
   const body = (
     <>
       <p className="text-label text-muted-foreground">{label}</p>
       <p className="text-heading-1 mt-2 tabular-nums">{value}</p>
+      {trend ? (
+        <p
+          className={cn(
+            "text-metadata mt-2 tabular-nums",
+            trend.direction === "up" && "text-secondary",
+            // Ochre on white does not reach AA, so a fall uses the earth-family
+            // destructive tone. Colour is never the only signal: the arrow and
+            // the signed percentage carry the meaning on their own (WCAG 1.4.1).
+            trend.direction === "down" && "text-destructive",
+            (trend.direction === "flat" || trend.direction === "none") &&
+              "text-muted-foreground",
+          )}
+        >
+          {trend.direction === "up" ? "\u2191 " : trend.direction === "down" ? "\u2193 " : ""}
+          {trend.label}
+        </p>
+      ) : null}
       {note ? <p className="text-metadata mt-2 text-muted-foreground">{note}</p> : null}
     </>
   );

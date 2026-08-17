@@ -1,22 +1,33 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { formatCents, toCents } from "@/lib/commerce/money";
+import { formatCents } from "@/lib/commerce/money";
+import { getAnalyticsContext } from "@/lib/analytics/context";
+import { getCatalogueComposition } from "@/lib/analytics/catalogue";
+import { getSalesKpis } from "@/lib/analytics/sales";
+import { resolveRange } from "@/lib/analytics/range";
 
 /**
  * Dashboard figures.
  *
- * Every number here is an aggregate the database actually computed. There is no
- * sample data, no projection, no "last month" comparison invented from a single
- * data point, and no chart drawn from an empty table — with no orders yet, the
- * honest answer is zero, and zero is what this returns.
+ * PHASE 7 — THIS FILE NOW DELEGATES.
  *
- * Revenue counts PAID and PARTIALLY_REFUNDED orders only. Counting unpaid orders
- * as revenue is the most common way a dashboard lies: an abandoned checkout is
- * not money. Refunds are netted at the payment level rather than estimated.
+ * Every number here is still a real aggregate the database computed, but the
+ * aggregation itself moved to lib/analytics/. The reason is not tidiness: this
+ * module and the new analytics section would otherwise each hold their own
+ * definition of "revenue", and two definitions is how a dashboard headline and
+ * a sales page end up disagreeing by one order while both look authoritative.
  *
- * All of it is one round trip. Fifteen sequential counts would make the
- * dashboard the slowest page in the admin; a single Promise.all issues them
- * concurrently over the pooled connection.
+ * The exported names and shapes are unchanged, so app/admin/page.tsx and
+ * anything else importing them keeps working; what changed is that they are now
+ * thin adapters over the shared services.
+ *
+ * The dashboard remains ALL-TIME on purpose. It answers "where does the
+ * business stand", which is a cumulative question; /admin/analytics answers
+ * "how did we do in a period", which is the one that needs a date picker.
+ *
+ * Revenue counts PAID and PARTIALLY_REFUNDED orders only. Counting unpaid
+ * orders as revenue is the most common way a dashboard lies: an abandoned
+ * checkout is not money.
  */
 
 export type CommerceKpis = {
@@ -70,50 +81,30 @@ export type OperationsFeed = {
   recentCustomers: { id: string; name: string; email: string; createdAt: Date; orderCount: number }[];
 };
 
-/**
- * The reporting currency.
- *
- * Read from the `commerce.currency` setting rather than hard-coded, so the
- * totals are labelled with whatever the studio has configured. Orders each carry
- * their own currency, so a genuinely multi-currency shop would need per-currency
- * totals — flagged in the Phase 4 report rather than silently summed, because
- * adding two currencies together produces a number that means nothing.
- */
-async function reportingCurrency(): Promise<string> {
-  const setting = await db.setting.findUnique({
-    where: { key: "commerce.currency" },
-    select: { value: true },
-  });
-  const value = setting?.value?.trim().toUpperCase();
-  return value && /^[A-Z]{3}$/.test(value) ? value : "USD";
-}
-
 export async function getCommerceKpis(): Promise<CommerceKpis> {
-  const PAID_STATUSES = ["PAID", "PARTIALLY_REFUNDED"] as const;
+  const context = await getAnalyticsContext();
+  // An unbounded range: the dashboard is a standing position, not a report on a
+  // period. `resolveRange` produces null start/end for this, which the query
+  // layer reads as "no date predicate at all".
+  const allTime = resolveRange({ preset: "all_time", timeZone: context.timeZone });
 
   const [
-    currency,
+    sales,
     ordersTotal,
-    ordersPaid,
-    ordersAwaitingPayment,
-    ordersPaymentPending,
     ordersAwaitingConfirmation,
     ordersInProduction,
     ordersReady,
     ordersRequiringProduction,
   ] = await Promise.all([
-    reportingCurrency(),
+    getSalesKpis(allTime, context.reportingCurrency),
     db.order.count(),
-    db.order.count({ where: { paymentStatus: { in: [...PAID_STATUSES] } } }),
-    db.order.count({ where: { paymentStatus: "UNPAID", fulfilmentStatus: { not: "CANCELLED" } } }),
-    db.order.count({ where: { paymentStatus: "PENDING" } }),
     db.order.count({ where: { fulfilmentStatus: "PENDING" } }),
     db.order.count({ where: { fulfilmentStatus: "IN_PRODUCTION" } }),
     db.order.count({ where: { fulfilmentStatus: "READY" } }),
-    // Orders carrying at least one made-to-order line that is not finished. This
-    // is the studio's actual production queue, which is not the same as
-    // "orders in production" — a confirmed order with unmade pieces belongs here
-    // before anyone has moved its status.
+    // Orders carrying at least one made-to-order line that is not finished.
+    // This is the studio's actual production queue, which is not the same as
+    // "orders in production" — a confirmed order with unmade pieces belongs
+    // here before anyone has moved its status.
     db.order.count({
       where: {
         fulfilmentStatus: { in: ["PENDING", "CONFIRMED", "IN_PRODUCTION"] },
@@ -122,46 +113,15 @@ export async function getCommerceKpis(): Promise<CommerceKpis> {
     }),
   ]);
 
-  /**
-   * PHASE 5O — revenue is scoped to ONE currency.
-   *
-   * The Phase 4 aggregate summed `total` across every paid order regardless of
-   * `Order.currency`. With a single currency that is correct by accident; the
-   * moment a second appears it produces a number that is not money in any
-   * currency — 100 USD plus 100 ZWG is not 200 of anything. `hasMixedCurrencies()`
-   * existed and warned in the UI, but the figure itself was still wrong, and a
-   * warned-about wrong number is still a wrong number on a dashboard someone
-   * makes decisions from.
-   *
-   * The fix is to filter rather than warn: only orders denominated in the
-   * reporting currency contribute. Orders in other currencies are counted
-   * separately by `otherCurrencyOrders` so they are visible rather than silently
-   * dropped — an excluded order the operator cannot see would be its own lie.
-   *
-   * No exchange rate is invented. Converting would require a rate the business
-   * has not supplied, and a made-up rate is worse than an honest per-currency
-   * split.
-   */
-  const [scopedAggregate, otherCurrencyOrders] = await Promise.all([
-    db.order.aggregate({
-      where: { paymentStatus: { in: [...PAID_STATUSES] }, currency },
-      _sum: { total: true },
-      _count: { _all: true },
-    }),
-    db.order.count({
-      where: { paymentStatus: { in: [...PAID_STATUSES] }, currency: { not: currency } },
-    }),
-  ]);
-
-  const revenueCents = toCents(scopedAggregate._sum.total ?? null) ?? 0;
-  const paidCount = scopedAggregate._count._all;
-  const averageOrderValueCents = paidCount > 0 ? Math.round(revenueCents / paidCount) : 0;
+  const currency = context.reportingCurrency;
+  const revenueCents = sales.revenue.primary.cents;
+  const averageOrderValueCents = sales.averageOrderValue.cents;
 
   return {
     ordersTotal,
-    ordersPaid,
-    ordersAwaitingPayment,
-    ordersPaymentPending,
+    ordersPaid: sales.ordersSettled,
+    ordersAwaitingPayment: sales.ordersAwaitingPayment,
+    ordersPaymentPending: sales.ordersPaymentPending,
     revenueCents,
     revenueFormatted: formatCents(revenueCents, currency),
     averageOrderValueCents,
@@ -171,44 +131,28 @@ export async function getCommerceKpis(): Promise<CommerceKpis> {
     ordersReady,
     ordersRequiringProduction,
     currency,
-    otherCurrencyOrders,
+    otherCurrencyOrders: sales.revenue.excludedCount,
   };
 }
 
 export async function getCatalogueKpis(): Promise<CatalogueKpis> {
-  const [
-    productsPublished,
-    productsCatalogue,
-    productsArchived,
-    productsWithoutPrice,
-    productsWithoutImages,
-    productsPublishedWithoutPrice,
-    collectionsPublished,
-    collectionsDraft,
-    collectionsPublishedEmpty,
-  ] = await Promise.all([
-    db.product.count({ where: { lifecycleStage: "PUBLISHED" } }),
-    db.product.count({ where: { lifecycleStage: "CATALOGUE" } }),
-    db.product.count({ where: { lifecycleStage: "ARCHIVED" } }),
-    db.product.count({ where: { price: null } }),
-    db.product.count({ where: { images: { none: {} } } }),
-    // The one that matters operationally: live on the storefront, but nothing
-    // can be bought because no price was ever confirmed.
-    db.product.count({ where: { lifecycleStage: "PUBLISHED", price: null } }),
-    db.collection.count({ where: { status: "PUBLISHED" } }),
-    db.collection.count({ where: { status: "DRAFT" } }),
-    db.collection.count({
-      where: { status: "PUBLISHED", products: { none: { lifecycleStage: "PUBLISHED" } } },
-    }),
-  ]);
+  const [composition, collectionsPublished, collectionsDraft, collectionsPublishedEmpty] =
+    await Promise.all([
+      getCatalogueComposition(),
+      db.collection.count({ where: { status: "PUBLISHED" } }),
+      db.collection.count({ where: { status: "DRAFT" } }),
+      db.collection.count({
+        where: { status: "PUBLISHED", products: { none: { lifecycleStage: "PUBLISHED" } } },
+      }),
+    ]);
 
   return {
-    productsPublished,
-    productsCatalogue,
-    productsArchived,
-    productsWithoutPrice,
-    productsWithoutImages,
-    productsPublishedWithoutPrice,
+    productsPublished: composition.published,
+    productsCatalogue: composition.catalogueOnly,
+    productsArchived: composition.archived,
+    productsWithoutPrice: composition.priceOnRequest,
+    productsWithoutImages: composition.withoutImages,
+    productsPublishedWithoutPrice: composition.publishedWithoutPrice,
     collectionsPublished,
     collectionsDraft,
     collectionsPublishedEmpty,
@@ -274,17 +218,13 @@ export async function getOperationsFeed(): Promise<OperationsFeed> {
 }
 
 /**
- * Whether more than one currency is present across paid orders.
+ * Whether more than one currency is present across settled orders.
  *
- * Summing across currencies would produce a meaningless total, so the dashboard
- * says so rather than quietly adding dollars to rand. Cheap to check and it can
- * only become true once the business actually starts selling abroad.
+ * Now answered from the shared analytics context, which already establishes the
+ * set of currencies in use, rather than by a second groupBy that could drift
+ * from it.
  */
 export async function hasMixedCurrencies(): Promise<boolean> {
-  const groups = await db.order.groupBy({
-    by: ["currency"],
-    where: { paymentStatus: { in: ["PAID", "PARTIALLY_REFUNDED"] } },
-    _count: { _all: true },
-  });
-  return groups.length > 1;
+  const context = await getAnalyticsContext();
+  return context.availableCurrencies.length > 1;
 }

@@ -15,11 +15,14 @@ export type AdminSection = {
  * protection. Each page independently calls `requirePermission()`, because a URL
  * typed into the address bar never passes through this list.
  *
- * `built: false` is now only Inventory, Campaigns and Landing pages, which are
- * Phase 5-7 work. Everything Phase 4 promised is live.
+ * `built: false` is now only Inventory, Campaigns and Landing pages. Phase 7
+ * added Analytics and deliberately left Inventory unbuilt: this phase reports
+ * ON stock (/admin/analytics/inventory), it does not manage it, and marking the
+ * section live would promise an editing surface that does not exist.
  */
 export const ADMIN_SECTIONS: AdminSection[] = [
   { label: "Dashboard",      href: "/admin",               permission: "dashboard:read",     built: true  },
+  { label: "Analytics",      href: "/admin/analytics",     permission: "dashboard:read",     built: true  },
   { label: "Products",       href: "/admin/products",      permission: "product:read",       built: true  },
   { label: "Collections",    href: "/admin/collections",   permission: "collection:read",    built: true  },
   { label: "Media",          href: "/admin/media",         permission: "media:read",         built: true  },

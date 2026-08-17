@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isValidTimeZone } from "@/lib/analytics/range";
 
 /**
  * The catalogue of business settings the team may edit.
@@ -21,7 +22,16 @@ import { z } from "zod";
  * seed as empty and read as "Not set" until the studio fills them in.
  */
 
-export type SettingKind = "text" | "textarea" | "email" | "tel" | "url" | "number" | "currency" | "boolean";
+export type SettingKind =
+  | "text"
+  | "textarea"
+  | "email"
+  | "tel"
+  | "url"
+  | "number"
+  | "currency"
+  | "boolean"
+  | "timezone";
 
 export type SettingDefinition = {
   key: string;
@@ -115,6 +125,15 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
     kind: "textarea",
     group: "business",
     maxLength: 400,
+  },
+  {
+    key: "business.timezone",
+    label: "Timezone",
+    help: "IANA name, for example Africa/Harare. Decides where the studio's trading day starts and ends in every report.",
+    kind: "timezone",
+    group: "business",
+    placeholder: "Africa/Harare",
+    maxLength: 64,
   },
   {
     key: "business.hours",
@@ -282,6 +301,15 @@ export function validateSettingValue(
       return /^[+()\d\s-]{6,40}$/.test(value)
         ? { ok: true, value }
         : { ok: false, error: "Use digits, spaces, +, - and brackets only" };
+    }
+    case "timezone": {
+      // Checked against the runtime's own zone database rather than a regex:
+      // "Africa/Bulawayo" has the right shape and does not exist, and a zone the
+      // runtime cannot resolve would silently fall back to the default while the
+      // settings page claimed it had been saved.
+      return isValidTimeZone(value)
+        ? { ok: true, value }
+        : { ok: false, error: "Enter an IANA timezone name, such as Africa/Harare" };
     }
     case "currency": {
       const upper = value.toUpperCase();

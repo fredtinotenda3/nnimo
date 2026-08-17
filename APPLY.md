@@ -1,35 +1,58 @@
-# APPLY — Phase 5
+# APPLY — Phase 7
 
-How to apply this archive to your working copy, verify it, and deploy.
+Analytics, business intelligence and internal operations.
 
-⚠️ **The verification gate in §3 was NOT run when this patch was produced** — the
-build environment had no `node_modules` and no database, and the instruction for
-this phase was to skip heavy commands. Every change is reviewed and reasoned, not
-compiler-checked. **Run §3 yourself and do not skip it.**
+This archive contains **only** the files Phase 7 created or modified: 29 new, 6
+modified, 0 deleted. Everything from Phases 1–5 that Phase 7 did not touch is
+absent, as are `node_modules`, `.next`, `.git` and the generated Prisma client.
+
+**Nothing in here needs a credential.** No Paynow, no S3, no email provider, no
+Redis. Those remain deferred external integrations and Phase 7 does not depend
+on any of them.
+
+> This file replaces the Phase 5 `APPLY.md`. If you still need those
+> instructions, they are in git history on the Phase 5 commit.
 
 ---
 
 ## 1. What is in this archive
 
-Only files created or modified in Phase 5. Untouched Phase 1–4 files,
-`node_modules`, `.next`, `.git` and the generated Prisma client are excluded.
+**New — the analytics layer** (`lib/analytics/`)
 
-```
-PHASE-5-REPORT.md                 this phase's full report
-APPLY.md                          this file
-.env.example                      + Phase 5 variables
-next.config.ts                    header split, image hardening
-proxy.ts                          CSP nonce + security headers
-scripts/verify-database.mjs       + two new indexes
-docs/                             6 documents
-lib/                              11 new + 9 modified
-app/                              16 modified
-tests/                            7 new suites
-prisma/migrations/20260815090000_phase5_production_constraints/
-```
+Split along one hard line: `range.ts`, `compute.ts`, `params.ts`, `sections.ts`
+and `types.ts` are **pure** and import no database, so the calculations are unit
+tested directly. `context.ts`, `sales.ts`, `catalogue.ts`, `audience.ts`,
+`operations.ts` and `overview.ts` do the querying and hold no derivation logic.
+That split is forced by `tests/stubs/db.ts`, which makes anything importing
+`@/lib/db` unusable from a unit test — see `docs/architecture/analytics.md` §1.
 
-This archive replaces the Phase 3/4 `APPLY.md` at the repository root. Keep the
-old one if you still need it for reference before overwriting.
+**New — UI**
+
+`components/admin/analytics-shell.tsx`, `components/admin/analytics-charts.tsx`,
+six pages under `app/admin/analytics/` and a segment-level `loading.tsx`. All
+server components. No charting dependency was added — the charts are inline SVG
+with a visually-hidden data table beside each one.
+
+**New — database, docs, tests**
+
+One migration, `docs/architecture/analytics.md`, four unit suites and one
+integration suite.
+
+**Modified — six files, all additive**
+
+| File | Change |
+|---|---|
+| `lib/admin/dashboard.ts` | Now delegates to `lib/analytics/`. **Exported names and types unchanged** |
+| `lib/admin/settings-registry.ts` | New `timezone` kind, new `business.timezone` definition |
+| `lib/admin-sections.ts` | Analytics nav entry |
+| `components/admin/list-controls.tsx` | Optional `trend` prop on `StatTile`; absent prop = old behaviour |
+| `prisma/seed/source-data.ts` | Seeds `business.timezone` = `Africa/Harare` |
+| `scripts/verify-database.mjs` | Registers the new index |
+
+`app/admin/page.tsx` is **not** in this archive. The dashboard refactor kept
+`getCommerceKpis`, `getCatalogueKpis`, `getOperationsFeed` and
+`hasMixedCurrencies` signature-compatible precisely so that page needed no
+change.
 
 ---
 
@@ -38,201 +61,223 @@ old one if you still need it for reference before overwriting.
 ### 2.1 Back up first
 
 ```bash
-git status                 # commit or stash anything outstanding
-git checkout -b phase-5-production-hardening
+git status                     # commit or stash anything outstanding
+git checkout -b phase-7-analytics
+pg_dump "$DIRECT_DATABASE_URL" > backup-pre-phase-7.sql
 ```
-
-If your working copy is not a git repository, copy it somewhere safe before
-proceeding — step 2.3 deletes a file.
 
 ### 2.2 Unzip over the repository root
 
 ```bash
-unzip -o nnino-phase-5.zip -d /path/to/nnimo-main
+cd /path/to/nnimo
+unzip -o /path/to/nnino-phase-7.zip
 ```
 
-`-o` overwrites. Every file in the archive is intended to replace its
-counterpart.
+Paths in the archive are repository-relative, so this lands each file in place.
 
-### 2.3 Delete one file — the zip cannot do this for you
+**No file needs deleting this time.** Unlike Phase 5, which needed a manual
+`rm lib/payments/registry.ts`, Phase 7 removes nothing.
+
+### 2.3 Review the diff
 
 ```bash
-rm lib/payments/registry.ts
+git status
+git diff -- lib/admin/dashboard.ts
+git diff -- components/admin/list-controls.tsx
 ```
 
-**This is required, not optional.** It was a dead second copy of the provider
-registry that nothing imported, and its `getCheckoutPaymentProvider()` fell back
-to the sandbox payment provider *without* checking `isConfigured()`. Leaving it
-in place leaves a silently-active test gateway waiting for someone to wire up.
-
-Confirm nothing references it:
-
-```bash
-grep -rn "payments/registry" app lib components   # expect no output
-```
-
-### 2.4 Review the diff
-
-```bash
-git diff --stat
-git diff
-```
-
-Pay particular attention to `lib/commerce/payment-service.ts`, `proxy.ts` and
-`app/(site)/checkout/actions.ts` — those carry the behavioural fixes.
+Those two are the only modifications touching existing behaviour, and both are
+meant to be boring. If `git diff` on `dashboard.ts` shows a changed export
+signature rather than a changed body, stop — something went wrong.
 
 ---
 
 ## 3. Verification gate
 
-Run in this order. **Stop at the first failure.**
+Run in this order. Steps 1–4 were executed in the build sandbox and passed;
+steps 5–6 could not be and are the ones that genuinely need your machine.
 
 ```bash
-npm install
-npm run db:generate
-npx tsc --noEmit
-npm run lint
-npm run test
-npm run build
+npm run db:generate     # 1
+npx tsc --noEmit        # 2  → expect clean
+npm run lint            # 3  → expect clean
+npm run test            # 4  → expect 307 passing, 19 files
+npm run build           # 5  NOT run in the sandbox
+npm run db:verify       # 6  NOT run in the sandbox
 ```
 
-Expected from `npm run test`: **206 tests passing** (140 baseline + 66 new).
-Anything below 140 means something was lost — investigate before continuing.
+### 3.1 The migration
 
-### 3.1 Then the database
-
-The migration is idempotent and additive, so it is safe against your existing
-development database where these objects were created by hand.
+`npm run db:verify` will **fail on step 6 until the migration is applied**,
+because it now checks for the new index by name. Apply it first:
 
 ```bash
-npx prisma migrate deploy
+npm run db:migrate      # development
+# or, for an existing/production database:
+npm run db:deploy
+```
+
+Then:
+
+```bash
 npm run db:verify
 ```
 
-`db:verify` must report **no `MISSING` lines**. It now also checks the two
-indexes this phase adds.
+Expect `order_settled_paid_at` in the index list and
+`All required database objects are present.`
 
-### 3.2 If tsc or lint fails
+The migration is idempotent (`CREATE INDEX IF NOT EXISTS`), non-destructive, and
+touches no row. On a large `Order` table consider the concurrent form instead, to
+avoid taking a write lock:
 
-Likely causes, in order of probability:
+```sql
+-- Run OUTSIDE a transaction if you use this variant.
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "order_settled_paid_at"
+  ON "Order" ("paidAt")
+  WHERE "paymentStatus" IN ('PAID', 'PARTIALLY_REFUNDED');
+```
 
-- **Missing generated Prisma client** — run `npm run db:generate` first. The two
-  `@/lib/generated/prisma/*` imports do not resolve until you do.
-- **`otherCurrencyOrders`** — added to `CommerceKpis` and rendered in
-  `app/admin/page.tsx`. If you have a second dashboard consumer, it needs the
-  field.
-- **`orderAccessToken`** — added as a required field on `PaymentIntentRequest`.
-  Any provider adapter written outside this archive must accept it.
-- **`rateLimit` is async** — it always returned a value the existing call sites
-  awaited, but a synchronous call site added since would now need `await`.
+With the current order volume the plain form is instant; this is here for later.
+
+### 3.2 Seed the timezone setting
+
+The new setting is seeded, but the seed only creates keys that are missing. On a
+database that already has settings, confirm it landed:
+
+```bash
+npm run db:seed
+```
+
+Then check **Admin → Settings → Business details → Timezone** reads
+`Africa/Harare`. If it is blank, `normaliseTimeZone()` falls back to
+`Africa/Harare` anyway, so analytics is correct either way — but the field should
+show the value so the team knows it is editable.
+
+### 3.3 If step 2 or 3 fails
+
+Almost certainly a stale generated Prisma client. Run `npm run db:generate` and
+retry before reading anything into it.
 
 ---
 
-## 4. Manual verification of the three critical fixes
-
-These need a database and cannot be unit tested. Do them before deploying.
-
-### C-1 — the order access token no longer leaks
+## 4. The integration suite — please run this
 
 ```bash
-# Place a sandbox order, note its orderNumber and accessToken.
-# Then, WITHOUT the token:
-curl -si "http://localhost:3000/checkout/sandbox/NN-2026-00001" | head -1
+# Needs TEST_DATABASE_URL pointing at a migrated, DISPOSABLE database.
+npm run test:integration
 ```
 
-**Expect 404.** Before this patch it returned 200 with the customer's access
-token embedded in the page — and that token opens `/orders/<token>`, which shows
-their name, email, phone and delivery address.
+**This is the step that matters most.** The 307 unit tests prove every
+calculation, but they cannot execute the four raw SQL statements Phase 7 added,
+because the unit config stubs the database. Those four are the parts TypeScript
+cannot check at all:
 
-Then confirm the correct token still works and a wrong one does not:
+1. `date_trunc(... AT TIME ZONE ...)` bucketing in `sales.ts` and `audience.ts`
+2. the `HAVING`-based repeat-customer count in `audience.ts`
+3. the double-`LEFT JOIN` revenue-by-range query in `sales.ts`
+4. the `FILTER`-based inventory snapshot in `catalogue.ts`
 
-```bash
-curl -si "http://localhost:3000/checkout/sandbox/NN-2026-00001?token=<real>"   # 200
-curl -si "http://localhost:3000/checkout/sandbox/NN-2026-00001?token=wrong"    # 404
-```
-
-### C-2 — inventory now commits and releases
-
-Requires a product with real stock (`availability = IN_STOCK`,
-`Inventory.onHand > 0`).
-
-1. Note `onHand` and `reserved`.
-2. Place an order for 1 → `reserved` +1, `onHand` unchanged.
-3. Complete the sandbox payment as **PAID** → `reserved` −1 **and** `onHand` −1,
-   with a `SALE` row in `InventoryMovement`.
-4. Place another order, complete as **FAILED** → `reserved` returns to baseline,
-   with a `RESERVATION_RELEASE` row.
-5. Place another, then cancel it in `/admin/orders` → same release behaviour.
-6. Re-submit a completed payment → **no** second `SALE` row (idempotency).
-
-### C-3 — a fresh database is now correct
-
-The important one. Against a **scratch** database, not your development one:
-
-```bash
-createdb nnino_fresh_test
-DATABASE_URL="postgresql://…/nnino_fresh_test" \
-DIRECT_DATABASE_URL="postgresql://…/nnino_fresh_test" \
-  npx prisma migrate deploy
-
-DIRECT_DATABASE_URL="postgresql://…/nnino_fresh_test" \
-  node scripts/verify-database.mjs
-```
-
-**Every line must read `OK`.** Before this patch, `nnino_order_number_seq` and
-all 23 CHECK constraints were `MISSING` on a fresh database, and every checkout
-would have failed with "relation does not exist".
-
-Drop the scratch database afterwards.
+`tests/integration/analytics.integration.test.ts` covers all four (12 tests).
+**Until it runs, treat that SQL as reviewed, not verified.**
 
 ---
 
-## 5. Recommended integration tests to add
+## 5. Manual verification worth doing by hand
 
-The three critical fixes have no automated coverage because they need a database.
-Add these to `tests/integration/` when convenient — they are the regressions most
-worth catching:
+### 5.1 The timezone boundary — the thing most likely to be wrong
 
-- `sandbox-access.integration.test.ts` — the sandbox page 404s without a token,
-  404s with a wrong token, and `completeSandboxPayment` refuses a mismatched
-  token.
-- `inventory-lifecycle.integration.test.ts` — commit on PAID, release on FAILED,
-  release on cancellation, and idempotency of each.
-- extend `constraints.integration.test.ts` — assert `nnino_order_number_seq`
-  exists and that each CHECK constraint actually rejects a violating row.
-
----
-
-## 6. Before you take a real order
-
-In order:
-
-1. Verification gate green (§3).
-2. Manual checks green (§4).
-3. `MEDIA_DRIVER=s3` with a real bucket — otherwise every uploaded image is lost
-   on the next deploy. See `docs/media-storage.md`.
-4. `RATE_LIMIT_REDIS_*` set — otherwise the limiter is per-instance and does not
-   hold across Vercel instances. See `docs/deployment.md`.
-5. Paynow adapter implemented. **🚫 Blocked on credentials and the integration
-   style decision** — `docs/payment-setup.md` lists exactly what the studio must
-   supply.
-6. Sending domain with SPF/DKIM/DMARC — otherwise no customer receives an email.
-   See `docs/operations.md`.
-7. Backups enabled **and a restore tested**.
-8. The 15 smoke tests in `docs/deployment.md`.
-
----
-
-## 7. Rolling back this patch
-
-```bash
-git checkout main            # or: git revert the merge commit
+```sql
+-- A settled order that landed at 22:30 UTC, which is already
+-- tomorrow in Bulawayo.
+UPDATE "Order"
+   SET "paidAt" = '2026-08-15T22:30:00Z', "paymentStatus" = 'PAID'
+ WHERE "orderNumber" = '<some test order>';
 ```
 
-The migration does **not** need reverting. It is additive and idempotent, so the
-pre-Phase-5 application runs fine against the migrated schema — that is
-deliberate, so a bad deploy is undone by reverting the application alone.
+Open `/admin/analytics/sales?range=custom&from=2026-08-16&to=2026-08-16`.
 
-If you must remove the database objects (you almost certainly should not — they
-are correctness constraints the application has always assumed), drop them
-individually by name. **Do not drop the sequence:** checkout depends on it.
+The revenue chart must show that order on **16 August**, not the 15th. If it
+appears on the 15th, the `AT TIME ZONE` clause and the range boundaries have
+disagreed — which is exactly the bug this design exists to prevent.
+
+### 5.2 Authorization
+
+Log in as a `MARKETING_MANAGER`. Expected:
+
+- The Analytics nav entry is visible (overview is `dashboard:read`).
+- Tabs show Overview and Products. **No Sales, Customers, Inventory or
+  Enquiries.**
+- Visiting `/admin/analytics/sales` directly redirects to
+  `/admin?denied=order%3Aread`.
+- On the overview, the revenue panel is **absent, not blank** — the gate decides
+  what is queried, not just what renders.
+
+### 5.3 Empty and zero states
+
+With no orders, `/admin/analytics` should read as "nothing has happened yet",
+never as broken:
+
+- Revenue and average order show `$0.00`, with the note "No settled orders yet".
+- Trends read "No comparable period", not "0%".
+- Charts show an empty state, not an empty axis.
+- Inventory reads **"No stock has been counted yet"** — this is the important
+  one. It must not say 369 pieces are out of stock.
+
+### 5.4 Currency separation
+
+If you can create a settled order in a second currency, do. The reporting
+currency figure must be unchanged, an amber note must appear naming how many
+orders were excluded, and the currency selector must appear in the filter bar.
+No figure anywhere should equal the sum of the two.
+
+### 5.5 Accessibility spot-check
+
+The charts were reviewed statically, not with a screen reader. Worth a real
+check: each `<svg>` has `role="img"` and a summary label, and each is followed by
+an `sr-only` table carrying the same numbers. Tab through the filter bar — every
+control should have a visible focus ring and an associated `<label>`.
+
+---
+
+## 6. Rolling back
+
+Code:
+
+```bash
+git checkout main
+git branch -D phase-7-analytics
+```
+
+Database — the index is the only change, and dropping it is safe and instant:
+
+```sql
+DROP INDEX IF EXISTS "order_settled_paid_at";
+```
+
+Then remove `"order_settled_paid_at"` from the `INDEXES` array in
+`scripts/verify-database.mjs`, or `db:verify` will report it missing.
+
+The `business.timezone` setting row is harmless to leave in place; nothing else
+reads it.
+
+---
+
+## 7. What Phase 7 deliberately did not do
+
+- **No Paynow, S3, email provider or Redis.** Still deferred, still needing
+  business decisions and credentials.
+- **`/admin/inventory` remains `built: false`.** Phase 7 reports on stock; it
+  does not manage it. Marking the section live would promise an editing surface
+  that does not exist.
+- **No enquiry-to-order conversion rate.** `CustomOrderInquiry` has no foreign
+  key to `Order` and shares no key with it. Matching on email address would
+  credit a commission enquiry with an unrelated shop order and miss every
+  commission paid for by an organisation. The enquiry pipeline's own progression
+  is reported instead, labelled for what it is. If the studio wants a real
+  conversion figure, the fix is a nullable `orderId` on `CustomOrderInquiry` set
+  when a commission converts — a small migration plus an admin action, not an
+  analytics change.
+- **No net-of-refund revenue.** Nothing in this repository writes a refund yet,
+  so `SUM(Order.total)` is exact today. `hasRecordedRefunds()` watches the
+  payment ledger and the UI will say the figure is gross the moment that stops
+  being true.

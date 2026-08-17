@@ -1,4 +1,5 @@
 import { PrismaClient } from "@/lib/generated/prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 
 /**
  * Integration harness — runs against a REAL PostgreSQL database.
@@ -34,8 +35,8 @@ if (!/test/i.test(databaseName)) {
   );
 }
 
-export const db = new PrismaClient({ datasourceUrl: url } as never);
-
+const adapter = new PrismaPg({ connectionString: url });
+export const db = new PrismaClient({ adapter } as never);
 /**
  * Narrows a `findUnique`/`findFirst` result from `T | null` to `T`.
  *
