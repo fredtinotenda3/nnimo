@@ -3,11 +3,13 @@ import { createHash, randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
 import { recordAudit } from "@/lib/audit";
 import { getActiveProvider, getProvider } from "@/lib/payments";
+import { MANUAL_PROVIDER_ID } from "@/lib/payments/manual-provider";
+import { testPaymentsAllowed } from "@/lib/payments/environment";
 import { toCents } from "@/lib/commerce/money";
 import { logger } from "@/lib/logger";
 import { commitOrderInventory, releaseOrderInventory } from "@/lib/commerce/inventory-lifecycle";
 import { evaluateVerification } from "@/lib/commerce/payment-verification";
-import type { VerifiedPaymentStatus } from "@/lib/payments/types";
+import { settlementModeOf, type VerifiedPaymentStatus } from "@/lib/payments/types";
 
 /**
  * The only path by which an order may become PAID.
@@ -90,16 +92,33 @@ export async function startPayment(params: {
     select: { id: true },
   });
 
-  // Order moves to PENDING, not PAID. Only verification can do that.
-  await db.order.update({
-    where: { id: order.id },
-    data: { paymentStatus: "PENDING" },
-  });
+  /**
+   * Order moves to PENDING, not PAID. Only verification can do that.
+   *
+   * UNDER MANUAL SETTLEMENT IT DOES NOT MOVE AT ALL.
+   *
+   * PENDING renders to the customer as "Payment processing" (PAYMENT_LABEL),
+   * which would be a straightforward lie when nothing is processing and nobody
+   * has been asked for money yet. The order stays UNPAID — "the studio will
+   * confirm payment with you" — until an operator records receipt through
+   * `settlePaymentManually()`. The Payment row above is still written, because
+   * an outstanding balance is a fact worth recording; it is the ORDER's
+   * denormalised status that must not overstate what has happened.
+   */
+  const settlement = settlementModeOf(provider);
+
+  if (settlement === "automatic") {
+    await db.order.update({
+      where: { id: order.id },
+      data: { paymentStatus: "PENDING" },
+    });
+  }
 
   logger.info("payment.initiated", {
     orderId: order.id,
     orderNumber: order.orderNumber,
     provider: provider.id,
+    settlement,
     amountCents,
     currency: order.currency,
     attempt: attempts,
@@ -115,10 +134,22 @@ export async function startPayment(params: {
  * than paid twice, and each verification writes a new append-only Payment row so
  * the history stays reconstructable.
  */
+export type VerificationOutcome = {
+  status: VerifiedPaymentStatus;
+  /**
+   * True when the provider claimed PAID and the environment guard refused it.
+   *
+   * Callers need to tell this apart from an ordinary PENDING: a blocked
+   * settlement must not send the customer a "your payment failed" email, because
+   * nothing failed.
+   */
+  blocked: boolean;
+};
+
 export async function verifyAndApplyPayment(params: {
   orderNumber: string;
   providerId?: string;
-}): Promise<{ status: VerifiedPaymentStatus }> {
+}): Promise<VerificationOutcome> {
   const order = await db.order.findUnique({
     where: { orderNumber: params.orderNumber },
     select: {
@@ -136,7 +167,7 @@ export async function verifyAndApplyPayment(params: {
   });
   if (!order) throw new Error("Order not found.");
 
-  if (order.paymentStatus === "PAID") return { status: "PAID" };
+  if (order.paymentStatus === "PAID") return { status: "PAID", blocked: false };
 
   const providerId = params.providerId ?? order.payments[0]?.provider;
   const provider = providerId ? getProvider(providerId) : getActiveProvider();
@@ -163,7 +194,43 @@ export async function verifyAndApplyPayment(params: {
   });
 
   const { amountMismatch, currencyMismatch, rejected } = decision;
-  const effectiveStatus: VerifiedPaymentStatus = decision.status;
+
+  /**
+   * THE PRODUCTION SETTLEMENT GUARD.
+   *
+   * The last line of defence, and deliberately not the only one. Provider
+   * selection (lib/payments/index.ts) already refuses to hand checkout a test
+   * provider on the real shop, and the sandbox provider already reports itself
+   * unconfigured there. This check exists because neither of those covers an
+   * order that was STARTED under a test provider and is being verified later —
+   * by a replayed callback, a reconciliation sweep, or a database restored from
+   * a staging environment into production.
+   *
+   * A test provider's PAID claim becomes PENDING: the order is not settled, and
+   * it is not marked FAILED either, because nothing about the payment failed. It
+   * simply may not be recognised here, and the studio can settle it manually if
+   * the money genuinely arrived.
+   *
+   * Logged at error, because this firing means something upstream is
+   * misconfigured and someone needs to look at it.
+   */
+  const blockedByEnvironment =
+    decision.status === "PAID" && provider.kind === "test" && !testPaymentsAllowed();
+
+  if (blockedByEnvironment) {
+    logger.error("payment.test_provider_settlement_blocked", {
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      provider: provider.id,
+      detail:
+        "A test payment provider reported PAID on a production deployment. The order has " +
+        "NOT been settled. If payment genuinely arrived, record it in the admin.",
+    });
+  }
+
+  const effectiveStatus: VerifiedPaymentStatus = blockedByEnvironment
+    ? "PENDING"
+    : decision.status;
 
   if (rejected) {
     // A provider disagreeing with us about what was paid is a reconciliation
@@ -286,7 +353,168 @@ export async function verifyAndApplyPayment(params: {
     });
   }
 
-  return { status: effectiveStatus };
+  return { status: effectiveStatus, blocked: blockedByEnvironment };
+}
+
+export class ManualSettlementError extends Error {}
+
+export type ManualSettlementResult = {
+  /** False when the order was already paid — a no-op, not a failure. */
+  settled: boolean;
+  orderNumber: string;
+};
+
+/**
+ * The studio recording that payment actually arrived.
+ *
+ * THE ONE PLACE MONEY IS RECOGNISED WITHOUT A PROVIDER
+ *
+ * Everything else in this module refuses to mark an order paid unless a payment
+ * network says so. That refusal is only safe if there is a legitimate way to
+ * record the payments Nnino genuinely takes offline — bank transfer, cash on
+ * collection, a mobile-money transfer arranged over WhatsApp. Without this
+ * function the alternative would be an operator being tempted to run a sandbox
+ * transaction to "make the order look right", which is the exact failure this
+ * whole change exists to prevent.
+ *
+ * WHAT MAKES IT DIFFERENT FROM A PROVIDER SETTLEMENT
+ *
+ *   - It requires an authenticated operator holding `order:settle`, checked by
+ *     the caller (app/admin/orders/actions.ts) before this is reached.
+ *   - It records WHO did it. `userId` is written to the audit log, so a
+ *     mistaken or dishonest settlement is attributable. A provider settlement
+ *     records a null user because no human made the decision.
+ *   - The Payment row is stamped with provider `manual`, so reconciliation can
+ *     always separate "money a gateway confirmed" from "money a person said
+ *     arrived". Analytics reading Payment.provider gets that distinction for
+ *     free.
+ *
+ * Idempotent on the order's paid state and on the Payment unique key, so a
+ * double-submitted form settles once.
+ */
+export async function settlePaymentManually(params: {
+  orderId: string;
+  userId: string;
+  /** The studio's own reference — a bank or mobile-money transaction id. */
+  reference: string | null;
+  /** How the money arrived, in the operator's words. Never invented for them. */
+  method: string | null;
+  note: string | null;
+}): Promise<ManualSettlementResult> {
+  const order = await db.order.findUnique({
+    where: { id: params.orderId },
+    select: {
+      id: true,
+      orderNumber: true,
+      total: true,
+      currency: true,
+      paymentStatus: true,
+    },
+  });
+  if (!order) throw new ManualSettlementError("Order not found.");
+
+  // Already settled. Not an error — two operators can reasonably reach for the
+  // same button — but nothing further happens, and no second Payment row is
+  // written.
+  if (order.paymentStatus === "PAID") {
+    return { settled: false, orderNumber: order.orderNumber };
+  }
+
+  if (order.paymentStatus === "REFUNDED" || order.paymentStatus === "PARTIALLY_REFUNDED") {
+    throw new ManualSettlementError(
+      "This order has been refunded. Settling it again would misstate the account.",
+    );
+  }
+
+  const amountCents = toCents(order.total);
+  if (amountCents === null || amountCents <= 0) {
+    throw new ManualSettlementError("This order has no payable total.");
+  }
+
+  const now = new Date();
+
+  await db
+    .$transaction(async (tx) => {
+      await tx.payment.create({
+        data: {
+          orderId: order.id,
+          provider: MANUAL_PROVIDER_ID,
+          providerRef: params.reference,
+          status: "PAID",
+          amount: order.total,
+          currency: order.currency,
+          // Keyed on the order alone: a second manual settlement of the same
+          // order is the double-submit case, and the unique index is what
+          // rejects it rather than a prior read that could race.
+          idempotencyKey: createHash("sha256")
+            .update(`manual-settlement:${order.id}`)
+            .digest("hex"),
+          rawPayload: {
+            settlement: "manual",
+            settledByUserId: params.userId,
+            method: params.method,
+            note: params.note,
+            reference: params.reference,
+          } as object,
+          // Verified by a person rather than a provider, which is what the
+          // audit entry below records.
+          verifiedAt: now,
+        },
+      });
+
+      await tx.order.update({
+        where: { id: order.id },
+        data: { paymentStatus: "PAID", paidAt: now },
+      });
+    })
+    .catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes("Unique constraint") || message.includes("idempotencyKey")) {
+        // Concurrent settlement of the same order. The other one won; the state
+        // this would have written already exists.
+        logger.info("payment.manual_settlement_duplicate", {
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+        });
+        return;
+      }
+      throw error;
+    });
+
+  /**
+   * Stock commitment, outside the transaction — same reasoning as
+   * `verifyAndApplyPayment`: `commitReservation` opens its own transaction, and
+   * a stock bookkeeping failure must not roll back a settlement that reflects
+   * money genuinely received.
+   */
+  await commitOrderInventory({ orderId: order.id, orderNumber: order.orderNumber });
+
+  logger.info("payment.manually_settled", {
+    orderId: order.id,
+    orderNumber: order.orderNumber,
+    userId: params.userId,
+    amountCents,
+    currency: order.currency,
+  });
+
+  await recordAudit({
+    userId: params.userId,
+    action: "payment.manually_settled",
+    entityType: "Order",
+    entityId: order.id,
+    metadata: {
+      orderNumber: order.orderNumber,
+      amountCents,
+      currency: order.currency,
+      method: params.method,
+      // The reference is the studio's own record of the transfer, not card data
+      // or a provider secret, so it is safe to keep in the audit trail — and it
+      // is the thing a reconciliation would need.
+      reference: params.reference,
+    },
+  });
+
+  return { settled: true, orderNumber: order.orderNumber };
 }
 
 /**

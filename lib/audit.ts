@@ -59,6 +59,12 @@ const AUDITED_ACTIONS = [
   "inquiry.status_change",
   "inquiry.updated",
   "order.note_updated",
+
+  // --- Manual settlement ---------------------------------------------------
+  // While no payment gateway is live, this is the only way an order reaches
+  // PAID, so it is the highest-value entry in the log: it names the operator who
+  // asserted that money arrived.
+  "payment.manually_settled",
 ] as const;
 
 export type AuditedAction = (typeof AUDITED_ACTIONS)[number];

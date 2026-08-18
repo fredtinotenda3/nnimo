@@ -82,8 +82,23 @@ export async function completeSandboxPayment(formData: FormData): Promise<void> 
   setSandboxOutcome(orderNumber, outcome);
   const result = await verifyAndApplyPayment({ orderNumber, providerId: sandboxProvider.id });
 
-  if (order.guestEmail) {
-    await sendOrderEmail(result.status === "PAID" ? "payment.successful" : "payment.failed", {
+  /**
+   * Three outcomes, not two.
+   *
+   * `result.blocked` means the environment guard refused a test provider's PAID
+   * claim (see verifyAndApplyPayment). Nothing failed, so sending "your payment
+   * could not be completed" would be wrong and alarming — and there is nothing
+   * to announce either, because no state changed. Silence is the correct email.
+   */
+  const emailKind =
+    result.status === "PAID"
+      ? "payment.successful"
+      : result.status === "FAILED" || result.status === "CANCELLED"
+        ? "payment.failed"
+        : null;
+
+  if (order.guestEmail && emailKind) {
+    await sendOrderEmail(emailKind, {
       orderNumber: order.orderNumber,
       accessToken: order.accessToken,
       customerName: order.guestName ?? "there",

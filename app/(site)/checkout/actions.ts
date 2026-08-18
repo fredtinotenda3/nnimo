@@ -13,7 +13,7 @@ import { sendOrderEmail } from "@/lib/email/order-emails";
 import { fieldErrors } from "@/lib/inquiries";
 import { formatCents } from "@/lib/commerce/money";
 import { PaymentProviderNotConfiguredError } from "@/lib/payments/types";
-import { getActiveProviderId } from "@/lib/payments";
+import { activeSettlementMode, getActiveProviderId } from "@/lib/payments";
 import { CHECKOUT_IDLE } from "@/lib/checkout-constants";
 import { logger } from "@/lib/logger";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -110,6 +110,13 @@ export async function placeOrderAction(
   await clearCartCookie();
   revalidatePath("/", "layout");
 
+  /**
+   * Resolved once and reused for both the email and the redirect, so the
+   * customer cannot be told one thing by the confirmation email and another by
+   * the page it links to.
+   */
+  const settlement = activeSettlementMode();
+
   // Confirmation of receipt goes out before payment — the order exists and the
   // customer should have a record of it regardless of what payment does next.
   await sendOrderEmail("order.received", {
@@ -126,6 +133,7 @@ export async function placeOrderAction(
       quantity: line.quantity,
       lineTotalLabel: line.lineTotalLabel,
     })),
+    settlement,
   });
 
   /**

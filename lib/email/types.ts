@@ -16,6 +16,12 @@ export interface EmailTransport {
 export type OrderEmailKind =
   | "order.received"
   | "payment.successful"
+  /**
+   * Sent when a studio operator records a payment that arrived off-platform.
+   * Distinct from `payment.successful`, which asserts a payment network verified
+   * the transaction — a claim manual settlement cannot make.
+   */
+  | "payment.confirmed_by_studio"
   | "payment.failed"
   | "order.confirmed"
   | "order.ready"

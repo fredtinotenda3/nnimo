@@ -69,18 +69,25 @@ Never commit real values. Set these in the Vercel dashboard.
 
 | Variable | Notes |
 |---|---|
-| `PAYMENT_PROVIDER` | `sandbox` or `paynow`. |
+| `DEPLOYMENT_ENV` | `development`, `staging` or `production`. State it — `next build` sets `NODE_ENV=production` for staging too. Unset production builds are treated as the real shop. |
+| `PAYMENT_PROVIDER` | `manual`, `sandbox` or `paynow`. **Use `manual` in production** until Paynow exists. |
 | `PAYNOW_INTEGRATION_ID` | Required when `paynow`. |
 | `PAYNOW_INTEGRATION_KEY` | Required when `paynow`. |
 | `PAYNOW_RETURN_URL` | Absolute https. |
 | `PAYNOW_RESULT_URL` | Absolute https — `https://…/api/payments/paynow/callback`. |
 | `PAYMENT_REDIRECT_ORIGIN` | Provider origin, for the CSP `form-action`. |
-| `PAYMENTS_ALLOW_SANDBOX_IN_PRODUCTION` | Only for a staging environment that deliberately uses test payments. |
+| `PAYMENTS_ALLOW_SANDBOX_IN_PRODUCTION` | **Deprecated** — use `DEPLOYMENT_ENV="staging"`. Still honoured. |
 
-**Production will refuse to boot with `PAYMENT_PROVIDER=sandbox`** unless
-`PAYMENTS_ALLOW_SANDBOX_IN_PRODUCTION="true"` is set. The sandbox provider lets
-the caller choose the payment outcome; discovering it is active when a customer
-tries to pay is too late.
+**`PAYMENT_PROVIDER=sandbox` on a production deployment resolves to `manual`**
+and logs `config.sandbox_provider_in_production` at error level. It no longer
+refuses to boot: the old behaviour left an operator with two ways out, and the
+convenient one — setting `PAYMENTS_ALLOW_SANDBOX_IN_PRODUCTION` — was the
+dangerous one. Falling back to manual settlement keeps the storefront up and
+makes a false `PAID` impossible.
+
+Under manual settlement, orders are created `UNPAID` and the studio confirms
+payment in `/admin/orders/<id>`. That requires the `order:settle` permission
+(OWNER and MANAGER).
 
 ### Email
 

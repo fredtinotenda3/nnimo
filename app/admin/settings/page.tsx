@@ -9,11 +9,18 @@ import {
   isKnownSettingKey,
   settingsInGroup,
 } from "@/lib/admin/settings-registry";
+import { getActiveProviderId } from "@/lib/payments";
 import { PageHeader, AdminSection } from "@/components/admin/page-header";
 import { SettingsGroupForm } from "@/components/admin/settings-form";
 
 export const metadata: Metadata = { title: "Settings" };
 export const dynamic = "force-dynamic";
+
+const PROVIDER_DESCRIPTION: Record<string, string> = {
+  sandbox: "Sandbox — test payments, no real money moves",
+  manual: "Manual settlement — orders are placed unpaid and confirmed by the studio",
+  paynow: "Paynow (credentials configured)",
+};
 
 /**
  * Business settings.
@@ -78,11 +85,19 @@ export default async function AdminSettingsPage() {
         <dl className="max-w-2xl divide-y divide-border border-y border-border">
           {[
             {
+              /**
+               * Reports the RESOLVED provider, not the requested one.
+               *
+               * These two differ precisely when it matters most: a production
+               * deployment asking for the sandbox provider is resolved down to
+               * manual settlement, and an operator reading this screen needs to
+               * see what the shop is actually doing rather than what an
+               * environment variable asked for. The previous version also read
+               * anything other than "sandbox" as configured Paynow, which would
+               * now be an outright false statement.
+               */
               label: "Payment provider",
-              value:
-                env.PAYMENT_PROVIDER === "sandbox"
-                  ? "Sandbox — no real money moves"
-                  : "Paynow (credentials configured)",
+              value: PROVIDER_DESCRIPTION[getActiveProviderId()] ?? "Unknown provider",
             },
             {
               label: "Media storage",

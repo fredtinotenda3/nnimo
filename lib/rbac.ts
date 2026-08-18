@@ -26,6 +26,7 @@ export const PERMISSIONS = [
   "order:read",
   "order:write",
   "order:refund",
+  "order:settle",
   "customer:read",
   "customer:write",
   "artist:read",
@@ -97,6 +98,15 @@ const CONTENT: Permission[] = [
  * OWNER is the only role that can manage users or read the audit log — the two
  * capabilities that would let someone quietly escalate or cover their tracks.
  * MANAGER runs the business day to day but cannot do either.
+ *
+ * `order:settle` is deliberately NOT in the ORDERS bundle. Marking an order paid
+ * by hand is the one admin action that asserts money was received when no
+ * payment network said so, and while Paynow is unavailable it is the ONLY way an
+ * order becomes PAID. That makes it a finance decision rather than an order-desk
+ * one, so it sits with `order:refund` — OWNER and MANAGER — instead of following
+ * `order:write` down to ORDER_MANAGER. Widening it is one line here plus the
+ * assertion in tests/rbac.test.ts, and should be a deliberate decision by the
+ * studio rather than a default.
  */
 const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   OWNER: PERMISSIONS,
@@ -107,6 +117,7 @@ const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     ...MARKETING,
     ...CONTENT,
     "order:refund",
+    "order:settle",
     "settings:write",
   ],
   PRODUCT_MANAGER: ["dashboard:read", ...CATALOGUE],

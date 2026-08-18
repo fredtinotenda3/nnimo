@@ -9,7 +9,12 @@ import type {
   OrderPaymentStatus,
 } from "@/lib/generated/prisma/enums";
 import { formatCents, toCents } from "@/lib/commerce/money";
-import { customerFacingStatus, FULFILMENT_LABEL, PAYMENT_LABEL } from "@/lib/commerce/fulfilment";
+import {
+  customerFacingStatus,
+  FULFILMENT_LABEL,
+  paymentStatusLabel,
+} from "@/lib/commerce/fulfilment";
+import { settlementModeForProvider } from "@/lib/payments";
 import { BRAND, whatsappLink } from "@/lib/brand";
 import { Section } from "@/components/ui/section";
 import { Button } from "@/components/ui/button";
@@ -54,6 +59,8 @@ type OrderView = {
   guestEmail: string | null;
   guestPhone: string | null;
   items: OrderItemRow[];
+  /** Latest first — only the provider is read, to decide how this order settles. */
+  payments: { provider: string }[];
 };
 
 type DeliveryAddress = {
@@ -121,6 +128,18 @@ export default async function OrderConfirmationPage({ params }: Params) {
           requiresProduction: true,
         },
       },
+      /**
+       * How this order settles is a property of the order, not of the process
+       * rendering it: it is decided by the provider the order was placed
+       * against. Only the provider id is selected — nothing about the payment
+       * instrument, reference or payload belongs on a page reachable with a
+       * link.
+       */
+      payments: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { provider: true },
+      },
     },
   });
 
@@ -132,6 +151,9 @@ export default async function OrderConfirmationPage({ params }: Params) {
   const totalCents = toCents(order.total) ?? 0;
   const deliveryPending = order.deliveryQuoteStatus === "PENDING_QUOTE";
   const madeToOrder = order.items.some((item) => item.requiresProduction);
+  const settlement = settlementModeForProvider(order.payments[0]?.provider);
+  const awaitingStudioPayment =
+    settlement === "manual" && order.paymentStatus !== "PAID";
 
   return (
     <Section className="pt-32 lg:pt-40">
@@ -139,10 +161,13 @@ export default async function OrderConfirmationPage({ params }: Params) {
         <p className="text-label text-muted-foreground">Order received</p>
         <h1 className="text-display mt-4">Thank you</h1>
         <p className="text-body-lg mt-6 text-muted-foreground">
-          {customerFacingStatus({
-            paymentStatus: order.paymentStatus,
-            fulfilmentStatus: order.fulfilmentStatus,
-          })}
+          {customerFacingStatus(
+            {
+              paymentStatus: order.paymentStatus,
+              fulfilmentStatus: order.fulfilmentStatus,
+            },
+            settlement,
+          )}
         </p>
 
         <dl className="mt-10 grid gap-6 border-y border-border py-6 sm:grid-cols-3">
@@ -154,7 +179,7 @@ export default async function OrderConfirmationPage({ params }: Params) {
             <dt className="text-metadata text-muted-foreground">Payment</dt>
             <dd className="mt-1">
               <Badge variant={order.paymentStatus === "PAID" ? "success" : "neutral"}>
-                {PAYMENT_LABEL[order.paymentStatus]}
+                {paymentStatusLabel(order.paymentStatus, settlement)}
               </Badge>
             </dd>
           </div>
@@ -254,6 +279,12 @@ export default async function OrderConfirmationPage({ params }: Params) {
         <div className="mt-12 border-t border-border pt-8">
           <h2 className="text-heading-2">What happens next</h2>
           <ol className="text-body-sm mt-4 flex flex-col gap-2 text-muted-foreground">
+            {awaitingStudioPayment ? (
+              <li>
+                Nothing has been charged. The studio will be in touch to confirm
+                availability and arrange payment with you.
+              </li>
+            ) : null}
             <li>The studio confirms your order and, if you chose delivery, the delivery cost.</li>
             {madeToOrder ? (
               <li>

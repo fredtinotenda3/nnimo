@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { testPaymentsAllowed } from "@/lib/payments/environment";
 import {
   PaymentVerificationError,
   type PaymentIntent,
@@ -28,14 +29,19 @@ export const SANDBOX_PROVIDER_ID = "sandbox";
 export const sandboxProvider: PaymentProvider = {
   id: SANDBOX_PROVIDER_ID,
   displayName: "Sandbox (test payments)",
+  kind: "test",
 
   isConfigured() {
-    // Never silently active in production. Turning it on there takes a
-    // deliberate environment variable, and it is named to be obvious in a log.
-    return (
-      process.env.NODE_ENV !== "production" ||
-      process.env.PAYMENTS_ALLOW_SANDBOX_IN_PRODUCTION === "true"
-    );
+    /**
+     * Never active on the real shop.
+     *
+     * The predicate moved to lib/payments/environment.ts in the manual
+     * settlement change. It used to be inlined here AND restated in
+     * lib/env.ts's boot check, which is two copies of the rule that decides
+     * whether a caller-chosen payment outcome can touch a customer's order.
+     * One copy now, consulted by every layer that needs it.
+     */
+    return testPaymentsAllowed();
   },
 
   async createPayment(request: PaymentIntentRequest): Promise<PaymentIntent> {

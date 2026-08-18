@@ -29,15 +29,40 @@ silently-active test gateway waiting for someone to wire it up.
 
 ## Providers
 
-### `sandbox` — built in, development only
+### `manual` — built in, the production setting until Paynow exists
+
+No credentials, no gateway, no redirect. Checkout creates the order, the customer
+is told plainly that the studio will confirm availability, delivery and payment,
+and the order stays `UNPAID` until an operator records receipt in
+`/admin/orders/<id>`.
+
+The design property that matters: **`verifyPayment()` has no code path that
+returns `PAID`.** Settlement happens only through `settlePaymentManually()` in
+`lib/commerce/payment-service.ts`, which requires an authenticated operator
+holding `order:settle` and writes a `payment.manually_settled` audit entry naming
+them. `parseWebhook()` throws, because nothing upstream could legitimately call
+it.
+
+It does not go away when Paynow lands — it stays as the record of every payment
+taken by bank transfer or cash on collection.
+
+### `sandbox` — built in, development and staging only
 
 Exercises the entire lifecycle without a gateway. The tester chooses the outcome,
 which is the point: it does not fake a *successful* payment, it makes the outcome
 explicit.
 
-It refuses to load in production unless `PAYMENTS_ALLOW_SANDBOX_IN_PRODUCTION` is
-`"true"`, **and** `lib/env.ts` refuses to boot production with
-`PAYMENT_PROVIDER=sandbox` without that same flag.
+It cannot operate on a production deployment. `isConfigured()` returns false
+there, `getActiveProviderId()` resolves it down to `manual`, and
+`verifyAndApplyPayment()` refuses to apply a `PAID` verification from any
+`kind: "test"` provider — three checks over one predicate
+(`lib/payments/environment.ts`), so an order started under the sandbox and
+verified later is covered too.
+
+"Production" here means `DEPLOYMENT_ENV` is `production`, or is unset on a
+production build. A staging deployment declares `DEPLOYMENT_ENV="staging"` (or
+the deprecated `PAYMENTS_ALLOW_SANDBOX_IN_PRODUCTION="true"`) and keeps the
+sandbox.
 
 Two limitations, both deliberate:
 

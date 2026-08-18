@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCartView } from "@/lib/commerce/cart";
-import { activeProviderOrNull } from "@/lib/payments";
+import { activeProviderOrNull, activeSettlementMode } from "@/lib/payments";
 import { Section } from "@/components/ui/section";
 import { Button } from "@/components/ui/button";
 import { CartLines } from "@/components/commerce/cart-lines";
@@ -23,6 +23,7 @@ export default async function CheckoutPage() {
   if (!cart.checkoutReady) redirect("/cart");
 
   const provider = activeProviderOrNull();
+  const settlement = activeSettlementMode();
 
   return (
     <Section className="pt-32 lg:pt-40">
@@ -54,7 +55,9 @@ export default async function CheckoutPage() {
             </dl>
 
             <div className="mt-4 flex items-baseline justify-between">
-              <span className="text-label text-muted-foreground">Total now</span>
+              <span className="text-label text-muted-foreground">
+                {settlement === "manual" ? "Order total" : "Total now"}
+              </span>
               <span className="text-price">{cart.subtotalLabel}</span>
             </div>
 
@@ -64,14 +67,25 @@ export default async function CheckoutPage() {
               not be charged for it here.
             </p>
 
-            {provider ? (
+            {/*
+              Three distinct states, because collapsing them would mean telling
+              the customer something untrue in at least one of them:
+
+                - automatic settlement: an online payment step follows;
+                - manual settlement: the order is placed now and payment is
+                  arranged with the studio afterwards. Nothing is charged here;
+                - no provider at all: same practical position as manual, and it
+                  is described the same way rather than as an outage, because
+                  from the customer's side nothing is broken.
+            */}
+            {provider && settlement === "automatic" ? (
               <p className="text-metadata mt-5 border-t border-border pt-5 text-muted-foreground">
                 Payment via {provider.displayName}.
               </p>
             ) : (
               <p className="text-body-sm mt-5 border-l-2 border-ochre pl-3 text-muted-foreground">
-                Online payment is not switched on yet. Your order will still be created
-                and the studio will contact you to arrange payment.
+                You will not be charged on this page. Once you place the order the studio
+                confirms availability, delivery and payment with you directly.
               </p>
             )}
 

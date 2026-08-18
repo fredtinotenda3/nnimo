@@ -45,6 +45,7 @@ function notConfigured(): never {
 export const paynowProvider: PaymentProvider = {
   id: PAYNOW_PROVIDER_ID,
   displayName: "Paynow (EcoCash, OneMoney, card)",
+  kind: "live",
 
   isConfigured() {
     // Credentials alone are not enough — the methods below are still stubs, so

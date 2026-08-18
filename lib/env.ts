@@ -1,6 +1,12 @@
 import "server-only";
 import { z } from "zod";
 import { resolveSiteUrl } from "@/lib/site-url";
+import { logger } from "@/lib/logger";
+import {
+  resolveDeploymentEnv,
+  testPaymentsAllowed,
+  usesDeprecatedSandboxFlag,
+} from "@/lib/payments/environment";
 
 /**
  * Fail fast on misconfiguration. A missing AUTH_SECRET or DATABASE_URL should
@@ -43,10 +49,24 @@ const schema = z.object({
   MEDIA_S3_SECRET_ACCESS_KEY: z.string().min(1).optional(),
   MEDIA_S3_PUBLIC_URL: z.string().url().optional(),
 
+  /**
+   * Which environment this deployment IS, stated rather than inferred.
+   *
+   * `next build` sets NODE_ENV=production for staging and preview deployments
+   * too, so NODE_ENV cannot distinguish the real shop from a staging copy — and
+   * that distinction is what decides whether a test payment provider may
+   * operate. Optional: lib/payments/environment.ts falls back to NODE_ENV plus
+   * the deprecated PAYMENTS_ALLOW_SANDBOX_IN_PRODUCTION flag, defaulting to
+   * "production" (the safe assumption) when neither says otherwise.
+   */
+  DEPLOYMENT_ENV: z.enum(["development", "staging", "production"]).optional(),
+
   // --- Commerce (Phase 3) --------------------------------------------------
   // Defaults to the sandbox provider so a fresh checkout never accidentally
-  // points at a live payment network.
-  PAYMENT_PROVIDER: z.enum(["sandbox", "paynow"]).default("sandbox"),
+  // points at a live payment network. "manual" is the production setting until
+  // Paynow credentials exist: checkout stays open, orders are created UNPAID,
+  // and the studio records payment in the admin.
+  PAYMENT_PROVIDER: z.enum(["sandbox", "paynow", "manual"]).default("sandbox"),
   PAYNOW_INTEGRATION_ID: z.string().min(1).optional(),
   PAYNOW_INTEGRATION_KEY: z.string().min(1).optional(),
   PAYNOW_RETURN_URL: z.string().url().optional(),
@@ -85,8 +105,12 @@ const schema = z.object({
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).optional(),
 
   /**
-   * Deliberate, loud opt-in to the test payment provider in production.
-   * Named to be obvious in a log and in the Vercel dashboard.
+   * DEPRECATED — use DEPLOYMENT_ENV="staging" instead.
+   *
+   * Still honoured so existing staging deployments do not change behaviour on
+   * this release, but the framing is wrong: it reads as permission to loosen
+   * production rather than as a statement about which environment this is, and
+   * that framing is how a real shop ends up settling sandbox transactions.
    */
   PAYMENTS_ALLOW_SANDBOX_IN_PRODUCTION: z.enum(["true", "false"]).optional(),
 });
@@ -168,26 +192,56 @@ if (Boolean(base.RATE_LIMIT_REDIS_URL) !== Boolean(base.RATE_LIMIT_REDIS_TOKEN))
 }
 
 /**
- * Production refuses to boot with the sandbox payment provider unless someone
- * has explicitly said so.
+ * The sandbox provider must never settle a real order.
  *
- * The sandbox provider lets a caller choose whether a payment "succeeded". That
- * is exactly right in development and catastrophic in production, so reaching it
- * takes a deliberate variable rather than an unnoticed default. The check lives
- * here, at boot, rather than at checkout time — discovering it when a customer
- * tries to pay is too late.
+ * WHY THIS NO LONGER THROWS
+ *
+ * It used to. A production build configured with PAYMENT_PROVIDER=sandbox
+ * refused to boot, and the error text suggested setting
+ * PAYMENTS_ALLOW_SANDBOX_IN_PRODUCTION to get past it — which is exactly the
+ * setting that lets a caller-chosen payment outcome mark a real customer's order
+ * paid. So the design offered two ways out, and the convenient one was the
+ * dangerous one. That is a bad guard, however loudly it fails.
+ *
+ * Manual settlement gives a third answer that is strictly better than both:
+ * lib/payments/index.ts resolves the request down to the `manual` provider, and
+ * the storefront keeps working with orders created UNPAID. Nothing can be
+ * recorded as paid without an operator saying so, so continuing here is failing
+ * SAFE rather than failing open — the fallback is the most conservative provider
+ * in the registry.
+ *
+ * The condition is still reported at boot, at error level, because it means the
+ * deployment is not configured the way whoever deployed it believed. It is
+ * visible in three places: this log line, the one-time log in
+ * lib/payments/index.ts, and the admin Settings screen, which reports the
+ * RESOLVED provider rather than the requested one.
  */
-if (
-  base.NODE_ENV === "production" &&
-  base.PAYMENT_PROVIDER === "sandbox" &&
-  base.PAYMENTS_ALLOW_SANDBOX_IN_PRODUCTION !== "true"
-) {
-  throw new Error(
-    'PAYMENT_PROVIDER="sandbox" in production. The sandbox provider lets the caller ' +
-      "choose the payment outcome and must never handle real orders. Configure a real " +
-      'provider, or set PAYMENTS_ALLOW_SANDBOX_IN_PRODUCTION="true" if this is a ' +
-      "staging environment that deliberately uses test payments.",
-  );
+if (base.PAYMENT_PROVIDER === "sandbox" && !testPaymentsAllowed(process.env)) {
+  logger.error("config.sandbox_provider_in_production", {
+    deploymentEnv: resolveDeploymentEnv(process.env),
+    detail:
+      'PAYMENT_PROVIDER="sandbox" on a production deployment. The sandbox provider lets ' +
+      "the caller choose the payment outcome, so it has been resolved to manual " +
+      "settlement instead: checkout stays open, orders are created UNPAID, and the studio " +
+      'confirms payment in the admin. Set PAYMENT_PROVIDER="manual" to make this ' +
+      'explicit, or DEPLOYMENT_ENV="staging" if this deployment is not the real shop.',
+  });
+}
+
+/**
+ * Test payments enabled on a production build. Legitimate for staging, and worth
+ * a line in the log either way — this is the one setting that allows a payment
+ * nobody made to be recorded as real.
+ */
+if (base.NODE_ENV === "production" && testPaymentsAllowed(process.env)) {
+  logger.warn("config.test_payments_enabled", {
+    deploymentEnv: resolveDeploymentEnv(process.env),
+    deprecatedFlag: usesDeprecatedSandboxFlag(process.env),
+    detail:
+      "Test payments are enabled on a production build. Correct for staging; wrong for " +
+      "the live shop. PAYMENTS_ALLOW_SANDBOX_IN_PRODUCTION is deprecated — prefer " +
+      'DEPLOYMENT_ENV="staging".',
+  });
 }
 
 export const env = base;

@@ -1,6 +1,7 @@
 import "server-only";
 import { BRAND, whatsappLink } from "@/lib/brand";
 import { sendEmail } from "@/lib/email";
+import { MANUAL_SETTLEMENT_MESSAGE, type SettlementMode } from "@/lib/commerce/fulfilment";
 import type { OrderEmailKind } from "@/lib/email/types";
 
 export type OrderEmailContext = {
@@ -13,7 +14,21 @@ export type OrderEmailContext = {
   fulfilmentMethod: "DELIVERY" | "COLLECTION" | null;
   deliveryPendingQuote: boolean;
   lines: { name: string; quantity: number; lineTotalLabel: string }[];
+  /**
+   * How this order settles.
+   *
+   * Optional and defaulting to "automatic" so every existing call site keeps its
+   * current wording. Under "manual" the payment sentences change: telling a
+   * customer to "pick up where you left off" when there is no online payment to
+   * resume is the kind of small untruth that generates support messages and
+   * erodes trust in everything else the email says.
+   */
+  settlement?: SettlementMode;
 };
+
+function isManual(context: OrderEmailContext): boolean {
+  return context.settlement === "manual";
+}
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
@@ -66,7 +81,12 @@ const TEMPLATES: Record<
         ? "Delivery is not included in this total. The studio will confirm the delivery cost with you before anything is dispatched."
         : "Collection from the studio, at no charge.",
       "",
-      "Payment has not been completed yet. You can pick up where you left off here:",
+      isManual(context)
+        ? MANUAL_SETTLEMENT_MESSAGE
+        : "Payment has not been completed yet. You can pick up where you left off here:",
+      isManual(context)
+        ? "Nothing has been charged, and there is nothing further for you to do right now."
+        : "",
       orderUrl(context),
       signature(),
     ].join("\n"),
@@ -82,6 +102,34 @@ const TEMPLATES: Record<
       itemLines(context),
       "",
       `Total paid: ${context.totalLabel}`,
+      context.deliveryPendingQuote
+        ? "Delivery is charged separately and the studio will confirm it with you."
+        : "",
+      "",
+      "Each piece is made by hand. Where a piece is made to order the studio needs around five to six weeks, depending on drying conditions.",
+      "",
+      orderUrl(context),
+      signature(),
+    ].join("\n"),
+  }),
+
+  /**
+   * Manual settlement: the studio has recorded that money arrived.
+   *
+   * Worded as the studio confirming receipt, never as a gateway verifying a
+   * transaction — no payment network was involved and the email must not imply
+   * one was.
+   */
+  "payment.confirmed_by_studio": (context) => ({
+    subject: `Payment confirmed for ${context.orderNumber}`,
+    text: [
+      `Hello ${context.customerName},`,
+      "",
+      `The studio has confirmed receipt of your payment for order ${context.orderNumber}.`,
+      "",
+      itemLines(context),
+      "",
+      `Total confirmed: ${context.totalLabel}`,
       context.deliveryPendingQuote
         ? "Delivery is charged separately and the studio will confirm it with you."
         : "",

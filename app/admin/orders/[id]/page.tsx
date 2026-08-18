@@ -26,6 +26,8 @@ import {
 import type { AuditEntryView, OrderDetailView } from "@/lib/commerce/order-views";
 import { OrderStatusForm } from "@/components/admin/order-status-form";
 import { OrderNoteForm } from "@/components/admin/order-note-form";
+import { ManualSettlementForm } from "@/components/admin/manual-settlement-form";
+import { settlementModeForProvider } from "@/lib/payments";
 
 export const metadata: Metadata = { title: "Order" };
 export const dynamic = "force-dynamic";
@@ -115,6 +117,16 @@ export default async function AdminOrderDetailPage({
   });
 
   const canWrite = can(user.role, "order:write");
+  const canSettle = can(user.role, "order:settle");
+
+  /**
+   * Judged by the provider this order was placed against, not by the current
+   * environment — the same rule the customer's confirmation page uses, so the
+   * studio and the customer are looking at the same account of the order.
+   */
+  const settlement = settlementModeForProvider(order.payments.at(-1)?.provider);
+  const awaitingSettlement =
+    settlement === "manual" && !isPaid(order.paymentStatus) && order.fulfilmentStatus !== "CANCELLED";
   const address = (order.deliveryAddress ?? null) as DeliveryAddress | null;
   const allowed = FULFILMENT_TRANSITIONS[order.fulfilmentStatus];
 
@@ -147,6 +159,9 @@ export default async function AdminOrderDetailPage({
           <Badge variant={order.paymentStatus === "PAID" ? "success" : "neutral"}>
             Payment: {PAYMENT_LABEL[order.paymentStatus]}
           </Badge>
+          {awaitingSettlement ? (
+            <Badge variant="outline">Settled by the studio</Badge>
+          ) : null}
           <Badge variant="outline">Stage: {FULFILMENT_LABEL[order.fulfilmentStatus]}</Badge>
           <Badge variant="neutral">
             {order.fulfilmentMethod === "COLLECTION" ? "Collection" : "Delivery"}
@@ -285,6 +300,44 @@ export default async function AdminOrderDetailPage({
             ) : (
               <p className="text-body-sm text-muted-foreground">
                 Your role can view orders but not change them.
+              </p>
+            )}
+          </div>
+        </section>
+
+        <section>
+          <h2 className="text-heading-2">Payment</h2>
+          <div className="mt-6">
+            {order.paymentStatus === "PAID" ? (
+              <p className="text-body-sm text-muted-foreground">
+                Recorded as paid
+                {order.paidAt
+                  ? ` on ${order.paidAt.toISOString().slice(0, 10)}`
+                  : ""}
+                . See the payments table below for how it settled.
+              </p>
+            ) : !awaitingSettlement ? (
+              <p className="text-body-sm text-muted-foreground">
+                This order settles through the payment provider. Its status updates when
+                the provider is verified — it is not marked paid by hand.
+              </p>
+            ) : canSettle ? (
+              <>
+                <p className="text-body-sm text-muted-foreground">
+                  No payment gateway is live, so this order was placed unpaid. Record the
+                  payment here once the money has actually arrived.
+                </p>
+                <div className="mt-5">
+                  <ManualSettlementForm
+                    orderId={order.id}
+                    totalLabel={formatCents(toCents(order.total) ?? 0, order.currency)}
+                  />
+                </div>
+              </>
+            ) : (
+              <p className="text-body-sm text-muted-foreground">
+                This order is awaiting payment confirmation. Your role can view orders but
+                not record payments — ask an owner or manager.
               </p>
             )}
           </div>

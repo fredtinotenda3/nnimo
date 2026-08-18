@@ -81,32 +81,31 @@ this phase. `APPLY.md` lists them as manual steps.
 
 ## Blockers before taking real money
 
-0. **🚫 DECIDE WHAT CHECKOUT DOES BEFORE PHASE 6. This is unresolved and it is the
-   launch blocker.**
+0. **✅ RESOLVED — checkout runs with manual settlement (Option B).**
 
-   Phase 6 is deferred, so production runs `PAYMENT_PROVIDER=sandbox` with
-   `PAYMENTS_ALLOW_SANDBOX_IN_PRODUCTION=true`. The sandbox flow is correctly
-   hardened — the caller must supply the order access token, it is compared in
-   constant time, and a miss returns `notFound()` — but the flow's *purpose* is to
-   let the token holder choose the payment outcome. In production the token holder
-   is the customer.
+   The Phase 8 blocker recorded here was that production ran
+   `PAYMENT_PROVIDER=sandbox` with `PAYMENTS_ALLOW_SANDBOX_IN_PRODUCTION=true`, so a
+   customer could place an order, open the sandbox page with their own access
+   token, select `PAID`, and receive a confirmed order with stock decremented and
+   a confirmation email — with no money moving.
 
-   A real customer can therefore reach `/checkout`, place an order, open
-   `/checkout/sandbox/<orderNumber>?token=<their own token>`, select `PAID`, and
-   receive a confirmed order with stock decremented and a confirmation email sent.
-   No money moves.
+   Option B has now been implemented. Checkout, cart and order creation all stay
+   open; orders are created `UNPAID`; and the studio records payment in
+   `/admin/orders/<id>` once the money actually arrives. Three independent guards
+   stop a test provider settling a real order:
 
-   This is **not** a code defect and Phase 8 deliberately did not "fix" it, because
-   both available fixes change what the business does:
+   - `getActiveProviderId()` resolves a test provider down to `manual` on a
+     production deployment;
+   - `sandboxProvider.isConfigured()` returns false there, so it cannot be used;
+   - `verifyAndApplyPayment()` refuses to apply a PAID verification from a
+     `kind: "test"` provider, which covers an order started under a test provider
+     and verified later.
 
-   | Option | What it means | Cost |
-   |---|---|---|
-   | **A — enquiry-only storefront** | Remove the cart/checkout entry points; the catalogue drives `CustomOrderInquiry` and email/WhatsApp instead. Ship the shop as a catalogue. | Loses the checkout flow from the launch. Reversible in Phase 6 by restoring the entry points. |
-   | **B — checkout with manual settlement** | Keep checkout, disable the sandbox settlement path in production, and land every order in `UNPAID` / `PENDING_QUOTE` for the studio to confirm payment out of band. | Orders arrive with no payment attached; Marion must reconcile each one by hand. Matches how the studio likely already works. |
+   Set `PAYMENT_PROVIDER="manual"` in production to make this explicit. See
+   `APPLY-TASK1.md`.
 
-   Option B is closer to current practice and preserves the funnel. But it is
-   Marion's call, not an engineering one, so it is recorded here rather than guessed
-   at. **Until this is decided, do not advertise the site as a shop.**
+   **Still true: no real payment can be taken until the Paynow adapter is
+   written.** Manual settlement makes the shop honest, not automated.
 
 1. **Run the Phase 5 migration and `npm run db:verify`.** Without
    `nnino_order_number_seq`, every checkout fails on a fresh database.

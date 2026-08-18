@@ -77,6 +77,23 @@ describe("role permissions", () => {
     expect(canRefund.sort()).toEqual(["MANAGER", "OWNER"]);
   });
 
+  /**
+   * Manual settlement is the ONLY route to PAID while no payment gateway is
+   * live, and it is currently irreversible. That makes it a finance capability
+   * rather than an order-desk one, so it deliberately does not follow
+   * `order:write` down to ORDER_MANAGER even though that role handles orders.
+   *
+   * If the studio decides the order desk should record payments, widening this
+   * is a one-line change in lib/rbac.ts — and this assertion is the thing that
+   * makes it a decision rather than a drift.
+   */
+  it("restricts recording a payment by hand to OWNER and MANAGER", () => {
+    const canSettle = ALL_ROLES.filter((role) => can(role, "order:settle"));
+    expect(canSettle.sort()).toEqual(["MANAGER", "OWNER"]);
+    expect(can("ORDER_MANAGER", "order:write")).toBe(true);
+    expect(can("ORDER_MANAGER", "order:settle")).toBe(false);
+  });
+
   it("gives every role the dashboard and nothing without a role", () => {
     for (const role of ALL_ROLES) {
       expect(can(role, "dashboard:read")).toBe(true);

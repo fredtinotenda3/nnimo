@@ -74,9 +74,38 @@ export class PaymentProviderNotConfiguredError extends Error {}
 export class PaymentVerificationError extends Error {}
 export class WebhookSignatureError extends Error {}
 
+/**
+ * What kind of thing is on the other end of this adapter?
+ *
+ *   live   — a real settlement network. Its verification may move money.
+ *   test   — the OUTCOME IS CHOSEN BY THE CALLER. Must never settle a real
+ *            order; see lib/payments/environment.ts.
+ *   manual — nothing settles online at all. The studio confirms receipt out of
+ *            band and records it through the admin.
+ *
+ * Declared on the provider rather than inferred from its id, so the settlement
+ * guard in lib/commerce/payment-service.ts is a property check rather than a
+ * string comparison that silently stops matching when a provider is renamed.
+ */
+export type PaymentProviderKind = "live" | "test" | "manual";
+
+/**
+ * Automatic: the provider tells us whether payment succeeded, and verification
+ * moves the order. Manual: only a human at the studio can, and the order stays
+ * UNPAID until they do.
+ */
+export type PaymentSettlementMode = "automatic" | "manual";
+
+export function settlementModeOf(
+  provider: Pick<PaymentProvider, "kind">,
+): PaymentSettlementMode {
+  return provider.kind === "manual" ? "manual" : "automatic";
+}
+
 export interface PaymentProvider {
   readonly id: string;
   readonly displayName: string;
+  readonly kind: PaymentProviderKind;
   /** False until real credentials are present. Checkout refuses to use it. */
   isConfigured(): boolean;
   createPayment(request: PaymentIntentRequest): Promise<PaymentIntent>;
