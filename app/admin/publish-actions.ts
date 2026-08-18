@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { requirePermission } from "@/lib/session";
+import { requireMutationPermission } from "@/lib/session";
 import { recordAudit } from "@/lib/audit";
 
 /**
@@ -20,7 +20,7 @@ import { recordAudit } from "@/lib/audit";
 const idSchema = z.object({ id: z.string().min(1).max(60) });
 
 export async function toggleProductPublished(formData: FormData) {
-  const user = await requirePermission("product:write");
+  const user = await requireMutationPermission("product:write");
   const { id } = idSchema.parse({ id: formData.get("id") });
 
   const product = await db.product.findUnique({
@@ -57,7 +57,7 @@ export async function toggleProductPublished(formData: FormData) {
 }
 
 export async function toggleCollectionPublished(formData: FormData) {
-  const user = await requirePermission("collection:write");
+  const user = await requireMutationPermission("collection:write");
   const { id } = idSchema.parse({ id: formData.get("id") });
 
   const collection = await db.collection.findUnique({

@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requirePermission } from "@/lib/session";
+import { logger } from "@/lib/logger";
+import { requireMutationPermission } from "@/lib/session";
 import { recordAudit } from "@/lib/audit";
 import {
   IDLE_FORM_STATE,
@@ -55,7 +56,7 @@ export async function createTeamMemberAction(
   _previous: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  const user = await requirePermission("artist:write");
+  const user = await requireMutationPermission("artist:write");
 
   const parsed = readTeamForm(formData);
   if (!parsed.success) return validationFailed(parsed.error);
@@ -65,7 +66,7 @@ export async function createTeamMemberAction(
     const artist = await db.artist.create({ data: parsed.data, select: { id: true } });
     createdId = artist.id;
   } catch (error) {
-    console.error("[admin/team] create failed", error);
+    logger.error("admin.team.create_failed", { userId: user.id, error });
     return formError("The team member could not be added. Please try again.");
   }
 
@@ -85,7 +86,7 @@ export async function updateTeamMemberAction(
   _previous: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  const user = await requirePermission("artist:write");
+  const user = await requireMutationPermission("artist:write");
 
   const idResult = idParam.safeParse(formData.get("id"));
   if (!idResult.success) return formError("That team member could not be identified.");

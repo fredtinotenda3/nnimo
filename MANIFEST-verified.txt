@@ -1,0 +1,79 @@
+FILES I WROTE AND CAN ACCOUNT FOR
+==================================
+
+MODIFIED (25)
+--------------------
+app/admin/collections/actions.ts
+app/admin/content/actions.ts
+app/admin/customers/actions.ts
+app/admin/inquiries/actions.ts
+app/admin/media/actions.ts
+app/admin/orders/actions.ts
+app/admin/products/actions.ts
+app/admin/publish-actions.ts
+app/admin/settings/actions.ts
+app/admin/team/actions.ts
+app/layout.tsx
+app/robots.ts
+app/sitemap.ts
+components/layout/site-header.tsx
+eslint.config.mjs
+lib/admin/media.ts
+lib/audit.ts
+lib/auth.config.ts
+lib/db.ts
+lib/env.ts
+lib/logger.ts
+lib/rate-limit.ts
+lib/session.ts
+tests/logger.test.ts
+tests/rate-limit.test.ts
+
+CREATED (14)
+-------------------
+app/(site)/error.tsx
+app/(site)/not-found.tsx
+app/admin/error.tsx
+app/api/health/route.ts
+app/global-error.tsx
+app/manifest.ts
+app/not-found.tsx
+app/opengraph-image.tsx
+lib/health.ts
+lib/site-url.ts
+tests/auth-cookies.test.ts
+tests/health.test.ts
+tests/robots.test.ts
+tests/site-url.test.ts
+
+
+FILES OF UNKNOWN PROVENANCE - SEE PROVENANCE-NOTE.md
+====================================================
+
+I did NOT write these. They appeared in the working tree during
+this session. Content read and checked: accurate, no fabricated
+metrics, no invented credentials. Provenance unexplained.
+
+(7)
+-------------------
+.env.example
+APPLY-PHASE-8.md
+PHASE-8-REPORT.md
+docs/deployment.md
+docs/operations.md
+docs/production-readiness.md
+docs/security.md
+
+
+EXCLUDED FROM THIS ZIP
+======================
+
+lib/generated/prisma/enums.ts  sandbox-only shim, mechanically derived
+                              from schema.prisma because
+                              binaries.prisma.sh is network-blocked.
+                              NOT part of the deliverable - run
+                              `npx prisma generate` instead.
+tsconfig.tsbuildinfo          build artefact from `tsc --noEmit`.
+node_modules/ .next/ .git/    per the brief.
+Untouched Phase 1-7 files     per the brief.
+

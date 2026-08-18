@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requirePermission } from "@/lib/session";
+import { logger } from "@/lib/logger";
+import { requireMutationPermission } from "@/lib/session";
 import { recordAudit } from "@/lib/audit";
 import {
   formError,
@@ -28,7 +29,7 @@ import { slugify, uniqueSlug, uniqueViolationTarget } from "@/lib/admin/slug";
 /**
  * Product mutations.
  *
- * Every action opens with `requirePermission("product:write")`. That call is the
+ * Every action opens with `requireMutationPermission("product:write")`. That call is the
  * authorisation boundary — not the admin layout, not the fact that the form was
  * only rendered for permitted roles, and certainly not any value in the
  * FormData. A server action is a POST endpoint with a generated URL; anyone who
@@ -87,7 +88,7 @@ export async function createProductAction(
   _previous: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  const user = await requirePermission("product:write");
+  const user = await requireMutationPermission("product:write");
 
   const parsed = readProductForm(formData);
   if (!parsed.success) return validationFailed(parsed.error);
@@ -119,7 +120,7 @@ export async function createProductAction(
     if (target === "sku") {
       return formError("That SKU already belongs to another piece.", { sku: "Already taken" });
     }
-    console.error("[admin/products] create failed", error);
+    logger.error("admin.product.create_failed", { userId: user.id, error });
     return formError("The piece could not be created. Please try again.");
   }
 
@@ -141,7 +142,7 @@ export async function updateProductAction(
   _previous: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  const user = await requirePermission("product:write");
+  const user = await requireMutationPermission("product:write");
 
   const idResult = idParam.safeParse(formData.get("id"));
   if (!idResult.success) return formError("That piece could not be identified.");
@@ -169,7 +170,7 @@ export async function updateProductAction(
     if (target === "sku") {
       return formError("That SKU already belongs to another piece.", { sku: "Already taken" });
     }
-    console.error("[admin/products] update failed", error);
+    logger.error("admin.product.update_failed", { userId: user.id, error });
     return formError("The changes could not be saved. Please try again.");
   }
 
@@ -213,7 +214,7 @@ export async function updateProductSeoAction(
   _previous: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  const user = await requirePermission("product:write");
+  const user = await requireMutationPermission("product:write");
 
   const idResult = idParam.safeParse(formData.get("id"));
   if (!idResult.success) return formError("That piece could not be identified.");
@@ -254,7 +255,7 @@ export async function updateProductSeoAction(
  * toggle exactly rather than introducing a second rule.
  */
 export async function setProductLifecycleAction(formData: FormData): Promise<void> {
-  const user = await requirePermission("product:write");
+  const user = await requireMutationPermission("product:write");
 
   const parsed = productLifecycleSchema.safeParse({
     id: formData.get("id"),
@@ -323,7 +324,7 @@ export async function attachProductImageAction(
   _previous: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  const user = await requirePermission("product:write");
+  const user = await requireMutationPermission("product:write");
 
   const parsed = attachImageSchema.safeParse({
     productId: formData.get("productId"),
@@ -362,7 +363,7 @@ export async function attachProductImageAction(
     // The unique index caught a concurrent duplicate. Harmless — the desired
     // end state already holds.
     if (uniqueViolationTarget(error)) return formError("That image is already on this piece.");
-    console.error("[admin/products] attach image failed", error);
+    logger.error("admin.product.attach_image_failed", { userId: user.id, error });
     return formError("The image could not be added.");
   }
 
@@ -380,7 +381,7 @@ export async function attachProductImageAction(
 }
 
 export async function detachProductImageAction(formData: FormData): Promise<void> {
-  const user = await requirePermission("product:write");
+  const user = await requireMutationPermission("product:write");
 
   const parsed = detachImageSchema.safeParse({
     productId: formData.get("productId"),
@@ -448,7 +449,7 @@ export async function detachProductImageAction(formData: FormData): Promise<void
  * cannot leave two images sharing a position.
  */
 export async function moveProductImageAction(formData: FormData): Promise<void> {
-  await requirePermission("product:write");
+  await requireMutationPermission("product:write");
 
   const parsed = imagePositionSchema.safeParse({
     productId: formData.get("productId"),
@@ -485,7 +486,7 @@ export async function moveProductImageAction(formData: FormData): Promise<void> 
 }
 
 export async function setPrimaryImageAction(formData: FormData): Promise<void> {
-  const user = await requirePermission("product:write");
+  const user = await requireMutationPermission("product:write");
 
   const parsed = setPrimaryImageSchema.safeParse({
     productId: formData.get("productId"),
@@ -522,7 +523,7 @@ export async function setPrimaryImageAction(formData: FormData): Promise<void> {
 
 /** Suggests a slug from a name, for the "generate" button on the form. */
 export async function suggestSlugAction(name: string): Promise<string> {
-  await requirePermission("product:write");
+  await requireMutationPermission("product:write");
   const base = slugify(name);
   if (!base) return "";
   return uniqueSlug(base, (candidate) => slugTaken(candidate));

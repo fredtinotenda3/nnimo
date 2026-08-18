@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requirePermission } from "@/lib/session";
+import { logger } from "@/lib/logger";
+import { requireMutationPermission } from "@/lib/session";
 import { recordAudit } from "@/lib/audit";
 import {
   IDLE_FORM_STATE,
@@ -37,7 +38,7 @@ export async function updateSettingsAction(
   _previous: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  const user = await requirePermission("settings:write");
+  const user = await requireMutationPermission("settings:write");
 
   const rawGroup = formData.get("group");
   const group = SETTING_GROUPS.find((candidate) => candidate === rawGroup) as
@@ -86,7 +87,7 @@ export async function updateSettingsAction(
       ),
     );
   } catch (error) {
-    console.error("[admin/settings] save failed", group, error);
+    logger.error("admin.settings.save_failed", { userId: user.id, group, error });
     return formError("Those settings could not be saved. Please try again.");
   }
 

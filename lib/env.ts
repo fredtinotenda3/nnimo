@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { resolveSiteUrl } from "@/lib/site-url";
 
 /**
  * Fail fast on misconfiguration. A missing AUTH_SECRET or DATABASE_URL should
@@ -13,6 +14,19 @@ const schema = z.object({
 
   DATABASE_URL: z.string().url("DATABASE_URL must be a valid connection string"),
   DIRECT_DATABASE_URL: z.string().url().optional(),
+
+  /**
+   * PHASE 8 (finding M1). Upper bound on pg connections held per instance.
+   *
+   * Left unset, node-postgres defaults to a pool of 10 PER PROCESS. On Vercel
+   * that is 10 per concurrently-warm serverless instance, so twenty instances
+   * under load reach for two hundred connections against a managed Postgres whose
+   * ceiling is commonly a few hundred — and the failure mode is not a slow site,
+   * it is "too many clients already" on every route at once.
+   *
+   * Validated but read directly by lib/db.ts, which is documented there.
+   */
+  DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(100).default(5),
 
   AUTH_SECRET: z
     .string()
@@ -87,6 +101,17 @@ if (!parsed.success) {
 }
 
 const base = parsed.data;
+
+/**
+ * PHASE 8 (finding H1). The Zod default above keeps development and test working
+ * without configuration, but a default is the wrong behaviour in production: an
+ * unset NEXT_PUBLIC_SITE_URL would silently publish canonical URLs, OpenGraph
+ * tags and a sitemap full of http://localhost:3000.
+ *
+ * The rule lives in lib/site-url.ts so there is exactly one implementation; this
+ * call is here so the failure happens at boot rather than at first render.
+ */
+resolveSiteUrl(process.env.NEXT_PUBLIC_SITE_URL, base.NODE_ENV);
 
 // The S3 driver needs its whole credential set or none of it — a half-configured
 // bucket silently writing nowhere is worse than refusing to start.

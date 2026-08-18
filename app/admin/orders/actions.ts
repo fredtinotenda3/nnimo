@@ -3,14 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { requirePermission } from "@/lib/session";
+import { logger } from "@/lib/logger";
+import { requireMutationPermission } from "@/lib/session";
 import { recordAudit } from "@/lib/audit";
 import { FulfilmentTransitionError, transitionFulfilment } from "@/lib/commerce/orders";
 
 /**
  * Admin order mutations.
  *
- * Every one goes through requirePermission() — the same Phase 1 RBAC used by the
+ * Every one goes through requireMutationPermission() — the same Phase 1 RBAC used by the
  * rest of /admin. There is no second authorization system, and no action trusts
  * a role claim from the form.
  */
@@ -35,7 +36,7 @@ export async function transitionOrderAction(
   _previous: AdminActionState,
   formData: FormData,
 ): Promise<AdminActionState> {
-  const user = await requirePermission("order:write");
+  const user = await requireMutationPermission("order:write");
 
   const parsed = transitionSchema.safeParse({
     orderId: formData.get("orderId"),
@@ -53,7 +54,7 @@ export async function transitionOrderAction(
     });
   } catch (error) {
     if (error instanceof FulfilmentTransitionError) return { error: error.message };
-    console.error("[admin/orders] transition failed", error);
+    logger.error("admin.order.transition_failed", { userId: user.id, error });
     return { error: "The status could not be changed. Please try again." };
   }
 
@@ -71,7 +72,7 @@ export async function saveInternalNoteAction(
   _previous: AdminActionState,
   formData: FormData,
 ): Promise<AdminActionState> {
-  const user = await requirePermission("order:write");
+  const user = await requireMutationPermission("order:write");
 
   const parsed = noteSchema.safeParse({
     orderId: formData.get("orderId"),

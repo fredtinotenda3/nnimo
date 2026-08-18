@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requirePermission } from "@/lib/session";
+import { requireMutationPermission } from "@/lib/session";
 import { recordAudit } from "@/lib/audit";
 import {
   IDLE_FORM_STATE,
@@ -27,7 +27,7 @@ export { IDLE_FORM_STATE };
  * actions carry an origin check on every invocation, which is CSRF protection
  * the app gets for free; a hand-rolled `POST /api/admin/media` would need that
  * built and maintained separately, and it would be one more endpoint to
- * remember to authorise. `requirePermission` still runs first regardless —
+ * remember to authorise. `requireMutationPermission` still runs first regardless —
  * an action is a public POST endpoint, and the only thing standing between it
  * and an authenticated user with the wrong role is this call.
  */
@@ -40,7 +40,7 @@ export async function uploadMediaAction(
   _previous: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  const user = await requirePermission("media:write");
+  const user = await requireMutationPermission("media:write");
 
   // Authenticated already, so this is not an access control — it bounds the
   // damage an accidental loop or a compromised admin session can do to storage
@@ -100,7 +100,7 @@ export async function updateMediaAction(
   _previous: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  const user = await requirePermission("media:write");
+  const user = await requireMutationPermission("media:write");
 
   const parsed = mediaMetadataSchema.safeParse({
     id: formData.get("id"),
@@ -147,7 +147,7 @@ export async function deleteMediaAction(
   _previous: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  const user = await requirePermission("media:write");
+  const user = await requireMutationPermission("media:write");
 
   const parsed = idParam.safeParse(formData.get("id"));
   if (!parsed.success) return formError("That image could not be identified.");

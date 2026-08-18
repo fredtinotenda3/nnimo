@@ -26,6 +26,30 @@ database on every admin request (`lib/session.ts`), so deactivating an account o
 changing a role takes effect on the next request rather than when the token
 expires.
 
+### Cookies (Phase 8)
+
+Session cookie flags are now stated in `lib/auth.config.ts` rather than inherited
+from Auth.js defaults. The values are identical, so nothing about the runtime
+changed and **no existing session was invalidated** — the point is that they are now
+asserted by a test.
+
+The name matters more than the flags. `proxy.ts` decides whether a visitor to
+`/admin` is anonymous by looking for a cookie in `AUTH_COOKIE_NAMES`, while Auth.js
+decides what to actually call it. Those were two independent sources of truth: an
+upstream rename would have matched nothing, made every admin request look anonymous,
+and put every operator in a `/login` redirect loop — with nothing logged anywhere,
+because the proxy would be doing exactly what it was written to do.
+`tests/auth-cookies.test.ts` keeps the two in agreement.
+
+`sameSite: "lax"` and not `"strict"`: strict would drop the cookie on a cross-site
+navigation *into* the admin, so following a link from an email to an order would
+land on the login page. Lax still withholds it from cross-site POSTs, which is the
+CSRF-relevant case, and server actions independently verify Origin against Host.
+
+`trustHost: true` is now explicit. Vercel is auto-detected so this changes nothing
+today, but off Vercel an unset `AUTH_URL` made sign-in fail with an `UntrustedHost`
+error that reads like a credentials problem.
+
 ## Authorisation
 
 Six roles, coarse-grained permissions, defined in `lib/rbac.ts`. OWNER is the
@@ -157,6 +181,29 @@ verified.
 
 ## Rate limiting
 
+**Phase 8 wired up a rule that existed but was never called.**
+`RATE_LIMIT_RULES.adminMutation` was defined in Phase 5 and invoked from nowhere,
+which is worse than a missing limit — a reviewer reading `lib/rate-limit.ts` sees a
+rule named for admin mutations and reasonably concludes admin mutations are
+limited. It is now enforced by `requireMutationPermission()` in `lib/session.ts`,
+which the 29 mutating admin server actions call.
+
+It was deliberately **not** folded into `requirePermission()`, even though that
+would have been a one-line change: 26 admin *pages* call that function too, several
+times per render in places, so charging reads against a mutation budget would let
+an operator throttle themselves out of their own admin simply by browsing the
+catalogue. RBAC still runs first — an unauthorised caller is rejected on those
+grounds, not told to slow down, because a 429 to an anonymous caller confirms the
+endpoint is worth retrying.
+
+`health` was added for `/api/health`, which is unauthenticated by necessity and
+touches the database. A throttled prober receives 429 rather than a 503, so a third
+party cannot flood the endpoint to make monitoring believe the site is down.
+
+Login remains the only rule that fails **closed**; a test now asserts that, so a
+second one cannot be introduced by accident.
+
+
 `lib/rate-limit.ts`. In-memory for development, Upstash Redis REST in production
 (no new dependency — it is one authenticated `fetch`). Fixed window. Fails open
 everywhere except login.
@@ -197,6 +244,26 @@ similar is replaced before serialisation, and emails and phone numbers are
 masked. Relying on every call site to remember not to log a secret is how secrets
 end up in logs.
 
+**Phase 8 added two things to this, because key-based redaction was not enough.**
+
+1. **Credential scrubbing inside strings** (`scrubSecrets`). Key patterns cannot
+   help when the secret is inside a sentence rather than the value of a field. A
+   `PrismaClientInitializationError` message embeds the whole datasource URL —
+   username, password, host, database. Every string and every `Error.message` is now
+   rewritten to strip the userinfo component of any URI before serialisation, and
+   the scrub happens *before* truncation so a cut cannot leave the password as the
+   tail of a surviving fragment. The username and host are kept, because a
+   connection failure you cannot attribute to a host is not diagnosable.
+
+2. **`no-console` as an ESLint error** across `app/`, `components/` and `lib/`.
+   Thirteen `console.error(..., error)` calls had accumulated in the admin server
+   actions, `lib/admin/media.ts` and `lib/audit.ts`, each one bypassing all of the
+   above. They were replaced — but a fix that depends on nobody adding the
+   fourteenth is not a fix, so the rule is the actual control. Exemptions are
+   narrow and individually justified: `lib/email/dev-transport.ts` (printing the
+   message *is* the dev transport's contract) and `scripts/` + `prisma/` (operator
+   CLI tools, never inside a request).
+
 ## Error handling
 
 `lib/http/errors.ts`. Users get a safe message and an opaque request id;
@@ -204,6 +271,29 @@ operators get the same id plus the real cause in the logs. Stack traces,
 database errors and provider responses never reach a response body. Errors whose
 messages were written *for* the user (`CheckoutValidationError`,
 `MediaUploadError`, and similar) are allow-listed by name and shown verbatim.
+
+### Rendered error pages (Phase 8)
+
+Before Phase 8 there were no error boundaries and no `not-found` files at all, so
+every unhandled error and every `notFound()` rendered a Next.js default page.
+
+- `app/(site)/error.tsx` — storefront
+- `app/admin/error.tsx` — admin
+- `app/global-error.tsx` — a failure in the root layout itself
+- `app/not-found.tsx` and `app/(site)/not-found.tsx` — 404s
+
+**All three boundaries render `error.digest` and nothing else.** Never
+`error.message`, never `error.stack`. The digest is a hash Next generates
+server-side and writes to the platform log beside the real stack trace, so a
+customer can quote eight characters and an operator can grep for them — it
+correlates without disclosing.
+
+The admin boundary applies the same rule as the public one, and this is deliberate
+rather than an oversight. "Everyone at /admin is trusted staff" does not hold:
+Nnino has six RBAC roles, a `CONTENT_MANAGER` is not entitled to a Prisma error
+naming the `Order` table and its columns, the boundary also catches errors thrown
+while the session is still being resolved, and error text has a habit of ending up
+in screenshots and support threads.
 
 ## Known gaps
 
@@ -213,6 +303,15 @@ messages were written *for* the user (`CheckoutValidationError`,
   surface in the browser console only.
 - **No WAF or bot management** beyond the rate limiter and form honeypots.
 - **No automated dependency scanning** wired into CI.
+- **Live checkout runs on the sandbox payment provider.** This is the largest open
+  security-relevant issue at launch and it is a **business decision, not a code
+  defect** — see the blocker in `docs/production-readiness.md`. The sandbox flow is
+  correctly hardened (token required, constant-time comparison, `notFound()` on a
+  miss), but by design it lets the holder of an order's access token choose the
+  payment outcome. In production that holder is the customer.
+- **No focus-trap or screen-reader testing beyond static review.** Phase 8 added
+  focus containment and restoration to the mobile drawer, but this was reasoned from
+  the code rather than verified with VoiceOver or NVDA.
 - **Audit log is append-only by convention, not by grant.** The application never
   updates or deletes `AuditLog` rows, but the database role it connects as could.
   A separate restricted role, or a `REVOKE UPDATE, DELETE` on the table, would

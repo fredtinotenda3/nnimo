@@ -20,6 +20,22 @@ created by hand.
 **`npm run db:verify` must pass before you take a single real order.** It checks
 for exactly these objects.
 
+## ⚠️ Phase 8 changed one variable from optional to required
+
+`NEXT_PUBLIC_SITE_URL` is now **mandatory in production**, must use `https`, and
+must not be a loopback host. `lib/site-url.ts` throws otherwise, and because
+`app/layout.tsx` imports it, **the build or the first render will fail** rather
+than serve wrong metadata.
+
+This is deliberate. Before Phase 8, three separate files fell back to
+`http://localhost:3000` when the variable was absent — so a missing value produced
+a sitemap, a set of canonical tags and a `robots.txt` full of localhost URLs, with
+no error and no log line. The only symptom was that the site indexed badly, weeks
+later.
+
+**Check this variable in the Vercel dashboard before deploying Phase 8.** If it is
+already set to the production https origin, nothing changes for you.
+
 ## Environment variables
 
 Never commit real values. Set these in the Vercel dashboard.
@@ -32,7 +48,7 @@ Never commit real values. Set these in the Vercel dashboard.
 | `DIRECT_DATABASE_URL` | **Unpooled**. Used by `prisma migrate`. |
 | `AUTH_SECRET` | ≥32 chars. `npx auth secret` or `openssl rand -base64 32`. |
 | `AUTH_URL` | Canonical origin, `https://…`. Required for correct cookies. |
-| `NEXT_PUBLIC_SITE_URL` | Canonical public origin. Drives canonical URLs, sitemap, OG tags and absolute links in email. |
+| `NEXT_PUBLIC_SITE_URL` | Canonical public origin. Drives canonical URLs, sitemap, `robots.txt`, OG tags and absolute links in email. **Phase 8: must be https and non-loopback, or the app refuses to boot.** |
 | `NODE_ENV` | `production` (Vercel sets this). |
 
 ### Media — required for production
@@ -97,6 +113,7 @@ Both must be set together or neither; `lib/env.ts` enforces that.
 |---|---|
 | `LOG_LEVEL` | `debug` \| `info` \| `warn` \| `error`. Defaults to `info` in production. |
 | `CSP_REPORT_ONLY` | `"true"` for one deploy while tightening the policy. |
+| `DATABASE_POOL_MAX` | Phase 8. Max pg connections **per instance**. Defaults to 5. Raise only with evidence; see the connection-pool note in `docs/operations.md`. |
 
 ### Seeding only
 
@@ -150,6 +167,37 @@ Run against the real production URL, in order. Stop at the first failure.
 14. Attempt 11 failed logins in a row; the 11th must be rate limited.
 15. Check the logs for `rate_limit.backend_degraded`. If present, the Redis
     variables are missing.
+
+Added in Phase 8 — run these too:
+
+16. `curl -s https://…/api/health` returns `200` and
+    `{"status":"ok","checks":{"database":"ok"},...}`. A `503` with
+    `"database":"failed"` means the app is up and Postgres is not; check
+    `DATABASE_URL` and the pooled endpoint. **This is the single best
+    post-deploy check** — it is the only one that proves the runtime can reach the
+    database.
+17. `curl -sI https://…/api/health | grep -i cache-control` contains `no-store`. A
+    cached health check reports the past.
+18. `GET /a-url-that-does-not-exist` returns 404 **and renders the branded Nnino
+    page** with a working navigation list — not the default Next.js 404.
+19. `GET /products/a-slug-that-does-not-exist` returns the branded 404 **with the
+    site header and footer present**. This is a different file from the one above
+    (`app/(site)/not-found.tsx` vs `app/not-found.tsx`) and both need checking.
+20. `GET /robots.txt` disallows `/orders/`, `/cart` and `/checkout/` as well as
+    `/admin`.
+21. `curl -sI https://…/opengraph-image` returns 200 and `content-type: image/png`.
+    Then paste the homepage URL into a WhatsApp draft and confirm a preview card
+    renders with an image — before Phase 8 this was a blank grey panel.
+22. `GET /manifest.webmanifest` returns 200 and valid JSON.
+23. Sign in, then open the mobile navigation on a phone (or a narrow window) and
+    press `Tab` repeatedly. Focus must stay inside the drawer, and `Escape` must
+    close it and return focus to the hamburger button.
+
+**One test that cannot be automated and must not be skipped:** on the homepage
+hero, check the transparent-header navigation text against the photograph behind
+it with a contrast checker. The palette tokens are AA-compliant on the warm
+background, but the over-hero state renders `warm-white/80` on whatever image is
+loaded, and that is a per-photograph property no static audit can settle.
 
 ## Rollback
 

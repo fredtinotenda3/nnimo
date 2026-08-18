@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requirePermission } from "@/lib/session";
+import { requireMutationPermission } from "@/lib/session";
 import { recordAudit } from "@/lib/audit";
 import {
   IDLE_FORM_STATE,
@@ -34,7 +34,7 @@ export async function updateCustomerAction(
   _previous: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  const user = await requirePermission("customer:write");
+  const user = await requireMutationPermission("customer:write");
 
   const idResult = idParam.safeParse(formData.get("id"));
   if (!idResult.success) return formError("That customer could not be identified.");

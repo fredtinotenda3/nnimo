@@ -1,7 +1,11 @@
 import type { MetadataRoute } from "next";
 import { getPublicSlugs } from "@/lib/catalogue";
+import { SITE_URL } from "@/lib/site-url";
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+// PHASE 8 (finding H1): resolved and validated centrally. A missing
+// NEXT_PUBLIC_SITE_URL used to fall back to localhost here, which would have
+// submitted a sitemap of unreachable URLs to every crawler that fetched it.
+const siteUrl = SITE_URL;
 
 /**
  * Generated per request, not at build time.

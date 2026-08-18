@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { logger } from "@/lib/logger";
 import { mediaDriver } from "@/lib/media";
 import { MAX_UPLOAD_BYTES, MediaValidationError, assertUploadAllowed } from "@/lib/media/types";
 import { sniffImage } from "@/lib/media/inspect";
@@ -86,9 +87,10 @@ export async function createMediaFromUpload(input: {
     // Not fatal on its own — browsers disagree about `image/jpg` versus
     // `image/jpeg` — but worth recording, because a large gap between claimed
     // and actual is what a probing upload looks like.
-    console.warn(
-      `[media] declared type ${file.type} did not match sniffed type ${sniffed.mimeType}; using the sniffed value`,
-    );
+    logger.warn("media.declared_type_mismatch", {
+      declared: file.type,
+      sniffed: sniffed.mimeType,
+    });
   }
 
   const stored = await mediaDriver.put({
@@ -136,7 +138,10 @@ export async function createMediaFromUpload(input: {
     // not drift; a failure here is logged rather than thrown, because the
     // original error is the one the operator needs to see.
     await mediaDriver.delete(stored.storageKey).catch((cleanupError) => {
-      console.error("[media] failed to clean up orphaned object", stored.storageKey, cleanupError);
+      logger.error("media.orphan_cleanup_failed", {
+        storageKey: stored.storageKey,
+        error: cleanupError,
+      });
     });
     throw error;
   }
@@ -235,10 +240,13 @@ export async function deleteMedia(mediaId: string): Promise<void> {
   await db.media.delete({ where: { id: mediaId } });
 
   await mediaDriver.delete(media.storageKey).catch((error) => {
-    console.error(
-      `[media] row ${mediaId} deleted but object ${media.storageKey} could not be removed`,
+    // The row is gone and the object is not. Loud, because it is the one media
+    // failure mode that silently accrues storage cost and cannot self-heal.
+    logger.error("media.object_orphaned", {
+      mediaId,
+      storageKey: media.storageKey,
       error,
-    );
+    });
   });
 }
 

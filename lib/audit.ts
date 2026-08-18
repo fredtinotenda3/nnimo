@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { logger } from "@/lib/logger";
 
 /**
  * Append-only record of sensitive admin actions.
@@ -82,6 +83,6 @@ export async function recordAudit(input: AuditInput): Promise<void> {
       },
     });
   } catch (error) {
-    console.error("[audit] failed to record action", input.action, error);
+    logger.error("audit.record_failed", { action: input.action, entityType: input.entityType, error });
   }
 }

@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requirePermission } from "@/lib/session";
+import { logger } from "@/lib/logger";
+import { requireMutationPermission } from "@/lib/session";
 import { recordAudit } from "@/lib/audit";
 import {
   field,
@@ -65,7 +66,7 @@ export async function createCollectionAction(
   _previous: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  const user = await requirePermission("collection:write");
+  const user = await requireMutationPermission("collection:write");
 
   const parsed = readCollectionForm(formData);
   if (!parsed.success) return validationFailed(parsed.error);
@@ -84,7 +85,7 @@ export async function createCollectionAction(
     if (uniqueViolationTarget(error) === "slug") {
       return formError("That web address is already in use.", { slug: "Already taken" });
     }
-    console.error("[admin/collections] create failed", error);
+    logger.error("admin.collection.create_failed", { userId: user.id, error });
     return formError("The range could not be created. Please try again.");
   }
 
@@ -104,7 +105,7 @@ export async function updateCollectionAction(
   _previous: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  const user = await requirePermission("collection:write");
+  const user = await requireMutationPermission("collection:write");
 
   const idResult = idParam.safeParse(formData.get("id"));
   if (!idResult.success) return formError("That range could not be identified.");
@@ -128,7 +129,7 @@ export async function updateCollectionAction(
     if (uniqueViolationTarget(error) === "slug") {
       return formError("That web address is already in use.", { slug: "Already taken" });
     }
-    console.error("[admin/collections] update failed", error);
+    logger.error("admin.collection.update_failed", { userId: user.id, error });
     return formError("The changes could not be saved. Please try again.");
   }
 
@@ -164,7 +165,7 @@ export async function updateCollectionSeoAction(
   _previous: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  const user = await requirePermission("collection:write");
+  const user = await requireMutationPermission("collection:write");
 
   const idResult = idParam.safeParse(formData.get("id"));
   if (!idResult.success) return formError("That range could not be identified.");
@@ -206,7 +207,7 @@ export async function updateCollectionSeoAction(
  * removing it from the catalogue.
  */
 export async function setCollectionMembershipAction(formData: FormData): Promise<void> {
-  const user = await requirePermission("collection:write");
+  const user = await requireMutationPermission("collection:write");
 
   const parsed = collectionMembershipSchema.safeParse({
     collectionId: formData.get("collectionId"),

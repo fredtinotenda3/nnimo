@@ -14,6 +14,12 @@ support without becoming a PII dump.
 
 `LOG_LEVEL` controls verbosity; `info` in production.
 
+**Phase 8:** credentials embedded *inside* strings are now scrubbed as well, not
+just values under sensitive keys — a driver error message carrying a full
+`postgresql://user:password@host/db` no longer reaches the log with its password
+intact. `console.*` is banned by ESLint in `app/`, `components/` and `lib/`, so
+every application log line goes through this path. See `docs/security.md`.
+
 ### Events worth alerting on
 
 | Event | Meaning | Urgency |
@@ -29,6 +35,11 @@ support without becoming a PII dump.
 | `email.delivery_failed` | A customer did not get their email. | Medium |
 | `auth.login_rate_limited` | Sustained bursts indicate credential stuffing. | Medium |
 | `media.s3_put_failed` | Uploads are failing. | Medium |
+| `health.database_unreachable` | The readiness probe cannot reach Postgres. `/api/health` is returning 503. | **Page someone.** |
+| `media.object_orphaned` | A `Media` row was deleted but its object was not. Storage cost accrues and it cannot self-heal. | Medium |
+| `audit.record_failed` | An admin action succeeded but was not audited. A gap in the trail. | Medium |
+| `admin.mutation_rate_limited` | An authenticated operator exceeded 120 writes/minute. A stuck client, a script, or a compromised session. | Medium |
+| `admin.*_failed` (`product.create_failed`, `order.transition_failed`, …) | An admin write failed. Phase 8 routed these through the logger; they were previously `console.error` and invisible to any log query. | Low individually, Medium if repeating |
 
 ### Correlation
 
@@ -36,6 +47,53 @@ Route handlers derive a request id from `x-request-id` or Vercel's `x-vercel-id`
 falling back to a fresh UUID, and stamp it on every line via `logger.child()`.
 The payment callback returns it in the response body, so a provider's delivery
 log can be joined to ours during reconciliation.
+
+## Health checks and monitoring
+
+**`GET /api/health`** (Phase 8). Returns `200` with
+`{"status":"ok","checks":{"database":"ok"},"time":"…"}`, or `503` with
+`"database":"failed"`.
+
+Point an uptime monitor at it. `HEAD` is handled, which is what most monitors send
+by default. A 30–60 second interval is well inside the rate limit (120/minute per
+IP); a throttled prober gets `429`, never a false `503`.
+
+**What it checks:** the database, and only the database. That is the one dependency
+whose absence makes every page fail, because every route is dynamic and reads from
+Postgres.
+
+**What it deliberately does not check**, and why — media storage (an S3 outage
+degrades images, it does not stop orders), email (a failed send is recoverable after
+the fact, a closed shop is not), the rate-limit cache (designed to fail open, so its
+absence is by definition not a health event), and the payment provider (polling a
+third party's API from a public endpoint is how you get rate-limited by them). A
+health check that goes red for a recoverable degradation trains its operators to
+ignore it.
+
+**What it will not tell you:** why. The response carries no version, commit,
+environment name, hostname or driver error — it is the most-probed URL on the
+deployment and unauthenticated by necessity, so every one of those would be free
+reconnaissance. The reason is in this log stream under
+`health.database_unreachable`, with the correlation id.
+
+## Database connections
+
+**Phase 8 bounded the pool.** `DATABASE_POOL_MAX` (default 5) caps pg connections
+per process. Left unbounded, node-postgres pools 10 per instance, which on Vercel is
+10 × every concurrently-warm serverless instance — twenty instances reach for two
+hundred connections against a managed Postgres whose ceiling is commonly a few
+hundred. The failure is not gradual: it is `too many clients already` on every route
+at once, including `/admin`, so the studio cannot log in to see what is wrong.
+
+**This is reasoned, not load-tested.** The number was chosen so the 3–4 parallel
+queries the public pages issue still run concurrently while 20 warm instances stay
+under 100 connections. When there is real traffic, look at the provider's connection
+count against its limit and at p95 query latency before changing it — and note that
+raising `DATABASE_POOL_MAX` is the wrong first move if the pooled endpoint is not
+being used at all.
+
+**`DATABASE_URL` must still point at the provider's pooled/pgbouncer endpoint.** The
+bound reduces blast radius; it does not replace connection pooling.
 
 ## Backup and restore
 

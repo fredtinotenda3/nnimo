@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Playfair_Display, Inter, Cormorant_Garamond } from "next/font/google";
+import { SITE_URL } from "@/lib/site-url";
 import "./globals.css";
 
 /**
@@ -34,7 +35,14 @@ const cormorant = Cormorant_Garamond({
   display: "swap",
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+/**
+ * PHASE 8 (finding H1). Was `process.env.NEXT_PUBLIC_SITE_URL ??
+ * "http://localhost:3000"`. `metadataBase` is what every relative canonical and
+ * OpenGraph URL on the site is resolved against, so a localhost fallback here
+ * poisoned the metadata of every page at once. lib/site-url.ts now refuses to
+ * resolve to a loopback host in production.
+ */
+const siteUrl = SITE_URL;
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requirePermission } from "@/lib/session";
+import { requireMutationPermission } from "@/lib/session";
 import { recordAudit } from "@/lib/audit";
 import {
   IDLE_FORM_STATE,
@@ -36,7 +36,7 @@ export async function updateInquiryAction(
   _previous: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  const user = await requirePermission("custom_order:write");
+  const user = await requireMutationPermission("custom_order:write");
 
   const parsed = inquiryUpdateSchema.safeParse({
     id: formData.get("id"),
@@ -91,7 +91,7 @@ export async function updateWholesaleInquiryAction(
   _previous: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  const user = await requirePermission("wholesale:write");
+  const user = await requireMutationPermission("wholesale:write");
 
   const parsed = wholesaleUpdateSchema.safeParse({
     id: formData.get("id"),

@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requirePermission } from "@/lib/session";
+import { logger } from "@/lib/logger";
+import { requireMutationPermission } from "@/lib/session";
 import { recordAudit } from "@/lib/audit";
 import {
   IDLE_FORM_STATE,
@@ -36,7 +37,7 @@ export async function updateContentBlockAction(
   _previous: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  const user = await requirePermission("content:write");
+  const user = await requireMutationPermission("content:write");
 
   const parsed = contentBlockSchema.safeParse({
     key: field(formData, "key"),
@@ -55,7 +56,7 @@ export async function updateContentBlockAction(
       update: { type, value, mediaId, updatedBy: user.id },
     });
   } catch (error) {
-    console.error("[admin/content] save failed", key, error);
+    logger.error("admin.content.save_failed", { userId: user.id, key, error });
     return formError("That block could not be saved. Please try again.");
   }
 

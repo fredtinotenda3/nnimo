@@ -116,3 +116,54 @@ describe("rateLimit compatibility wrapper", () => {
     expect(await rateLimit("nonsense:5.6.7.8")).toBe(false);
   });
 });
+
+/**
+ * Regression tests for Phase 8 finding M3.
+ *
+ * `adminMutation` was defined in Phase 5 and called from nowhere. These lock in the
+ * two properties that make it worth having: it exists with sane bounds, and it fails
+ * open. A future edit that flips `failClosed` on this rule would mean a Redis outage
+ * stops the studio from fulfilling orders — which is precisely the trade Phase 5
+ * decided against everywhere except login.
+ */
+describe("adminMutation rule (Phase 8)", () => {
+  it("is defined and bounded", () => {
+    const rule = RATE_LIMIT_RULES.adminMutation;
+    expect(rule.max).toBeGreaterThan(0);
+    expect(rule.windowMs).toBeGreaterThan(0);
+  });
+
+  it("is generous enough not to interrupt legitimate bulk admin work", () => {
+    // Reordering a collection's images or working an order queue is bursty. A limit
+    // that interrupts real work is a limit that gets deleted.
+    expect(RATE_LIMIT_RULES.adminMutation.max).toBeGreaterThanOrEqual(60);
+  });
+
+  it("fails OPEN, so a cache outage cannot stop the studio taking action", () => {
+    expect(RATE_LIMIT_RULES.adminMutation.failClosed ?? false).toBe(false);
+  });
+});
+
+describe("health rule (Phase 8)", () => {
+  it("absorbs a realistic monitoring poll interval", () => {
+    // Uptime services poll every 30–60s; this must not flag them.
+    const rule = RATE_LIMIT_RULES.health;
+    expect(rule.max).toBeGreaterThanOrEqual(60);
+    expect(rule.windowMs).toBeLessThanOrEqual(60_000);
+  });
+
+  it("fails open, so the limiter cannot manufacture a false outage", () => {
+    expect(RATE_LIMIT_RULES.health.failClosed ?? false).toBe(false);
+  });
+});
+
+describe("login remains the only fail-closed rule (Phase 8 guard)", () => {
+  it("keeps exactly one fail-closed rule, and it is login", () => {
+    // If a second rule ever becomes fail-closed, that is a deliberate availability
+    // trade and should be argued for explicitly rather than arrived at by edit.
+    const failClosed = Object.entries(RATE_LIMIT_RULES)
+      .filter(([, rule]) => (rule as { failClosed?: boolean }).failClosed)
+      .map(([name]) => name);
+    expect(failClosed).toEqual(["login"]);
+  });
+});

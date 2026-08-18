@@ -1,22 +1,5 @@
 import "server-only";
 
-/**
- * Structured application logging.
- *
- * Deliberately dependency-free. Vercel, CloudWatch, Datadog and Grafana Loki all
- * ingest JSON lines from stdout; adding pino or winston would buy formatting we
- * do not need and a transport layer the platform already provides. What actually
- * matters — and what console.log scattered through the codebase does NOT give
- * us — is a consistent shape, a correlation id, and redaction that runs before
- * anything reaches the log.
- *
- * REDACTION IS THE POINT. Phase 5I forbids logging passwords, payment secrets,
- * API keys, session tokens and unnecessary PII. Relying on every call site to
- * remember that is how secrets end up in logs, so the redaction happens here,
- * structurally, on the way out. A caller that passes an entire provider payload
- * gets it redacted rather than leaked.
- */
-
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
 const LEVEL_ORDER: Record<LogLevel, number> = { debug: 10, info: 20, warn: 30, error: 40 };
@@ -29,14 +12,6 @@ function activeLevel(): LogLevel {
   return process.env.NODE_ENV === "production" ? "info" : "debug";
 }
 
-/**
- * Keys whose values are never logged, matched case-insensitively as substrings.
- *
- * Substring matching is deliberate: providers are inconsistent about naming
- * ("integrationkey", "integration_key", "IntegrationKey") and an exact-match
- * list would miss the one spelling that matters. A false positive costs a
- * redacted field in a log; a false negative costs a leaked credential.
- */
 const REDACT_KEY_PATTERNS = [
   "password",
   "passwd",
@@ -65,7 +40,6 @@ const REDACT_KEY_PATTERNS = [
   "iban",
 ];
 
-/** Keys that hold PII we log only as a shape, never a value. */
 const PII_KEY_PATTERNS = ["email", "phone", "address", "line1", "line2", "guestname", "customername"];
 
 export const REDACTED = "[redacted]";
@@ -75,10 +49,6 @@ function keyMatches(key: string, patterns: string[]): boolean {
   return patterns.some((pattern) => normalised.includes(pattern.replace(/[-_\s]/g, "")));
 }
 
-/**
- * Masks an email or phone so a log line stays useful for support ("which
- * customer?") without becoming a PII dump. `mary@example.com` → `m***@example.com`.
- */
 function maskPii(value: string): string {
   const at = value.indexOf("@");
   if (at > 0) {
@@ -89,23 +59,25 @@ function maskPii(value: string): string {
   return `***${value.slice(-3)}`;
 }
 
+const URI_CREDENTIALS = /\b([a-z][a-z0-9+.-]*:\/\/)([^/\s:@]+)(?::([^/\s@]*))?@/gi;
+
+export function scrubSecrets(value: string): string {
+  return value.replace(URI_CREDENTIALS, (_match, scheme: string, user: string, password?: string) =>
+    password === undefined ? `${scheme}${user}@` : `${scheme}${user}:${REDACTED}@`,
+  );
+}
+
 const MAX_DEPTH = 6;
 const MAX_ARRAY = 25;
 const MAX_STRING = 2000;
 
-/**
- * Recursively redacts a value before it is serialised.
- *
- * Depth and breadth are bounded so a hostile or merely enormous provider payload
- * cannot produce a multi-megabyte log line or recurse forever on a cyclic
- * object.
- */
 export function redact(value: unknown, depth = 0, seen = new WeakSet<object>()): unknown {
   if (value === null || value === undefined) return value;
   if (depth > MAX_DEPTH) return "[truncated: depth]";
 
   if (typeof value === "string") {
-    return value.length > MAX_STRING ? `${value.slice(0, MAX_STRING)}…[truncated]` : value;
+    const scrubbed = scrubSecrets(value);
+    return scrubbed.length > MAX_STRING ? `${scrubbed.slice(0, MAX_STRING)}…[truncated]` : scrubbed;
   }
   if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
     return typeof value === "bigint" ? value.toString() : value;
@@ -115,10 +87,13 @@ export function redact(value: unknown, depth = 0, seen = new WeakSet<object>()):
   if (value instanceof Error) {
     return {
       name: value.name,
-      message: value.message,
-      // Stacks are kept for the operator but never returned to a user — see
-      // lib/http/errors.ts, which is what shapes the client-facing response.
-      ...(process.env.NODE_ENV === "production" ? {} : { stack: value.stack }),
+      message: scrubSecrets(value.message),
+      ...(process.env.NODE_ENV === "production"
+        ? {}
+        : { stack: value.stack ? scrubSecrets(value.stack) : undefined }),
+      ...(typeof (value as { code?: unknown }).code === "string"
+        ? { code: (value as unknown as { code: string }).code }
+        : {}),
     };
   }
 
@@ -152,7 +127,6 @@ export function redact(value: unknown, depth = 0, seen = new WeakSet<object>()):
 }
 
 export type LogContext = Record<string, unknown> & {
-  /** Correlates every line emitted while handling one request. */
   requestId?: string;
 };
 
@@ -168,7 +142,6 @@ function emit(level: LogLevel, event: string, context: LogContext = {}): void {
 
   const serialised = JSON.stringify(line);
 
-  // stderr for warn/error so platform log routing can split them.
   if (level === "error" || level === "warn") process.stderr.write(`${serialised}\n`);
   else process.stdout.write(`${serialised}\n`);
 }
@@ -179,7 +152,6 @@ export const logger = {
   warn: (event: string, context?: LogContext) => emit("warn", event, context),
   error: (event: string, context?: LogContext) => emit("error", event, context),
 
-  /** Returns a logger that stamps every line with the same correlation id. */
   child(bound: LogContext) {
     return {
       debug: (event: string, context?: LogContext) => emit("debug", event, { ...bound, ...context }),

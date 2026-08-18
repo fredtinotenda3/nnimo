@@ -254,6 +254,21 @@ export const RATE_LIMIT_RULES = {
 
   /** Catch-all for authenticated admin mutations. */
   adminMutation: { windowMs: MINUTE, max: 120, failClosed: false },
+
+  /**
+   * PHASE 8. /api/health.
+   *
+   * Bounded because the endpoint touches the database, so an unauthenticated
+   * caller could otherwise use it to generate one query per request — cheap
+   * individually, not cheap at volume, and pointed at the one resource whose
+   * exhaustion takes the storefront down with it.
+   *
+   * Set high enough for real monitoring: 120/minute per IP absorbs a 1-second
+   * poll interval with room to spare, and uptime services poll every 30–60s.
+   * Fails OPEN, and the route treats a rate-limited call as still-healthy rather
+   * than reporting a false outage — see app/api/health/route.ts.
+   */
+  health: { windowMs: MINUTE, max: 120, failClosed: false },
 } as const satisfies Record<string, RateLimitRule>;
 
 export type RateLimitName = keyof typeof RATE_LIMIT_RULES;
