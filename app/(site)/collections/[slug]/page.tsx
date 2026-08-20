@@ -84,7 +84,7 @@ export default async function CollectionDetailPage({ params }: Params) {
           <div aria-hidden="true" className="absolute inset-0 bg-charcoal/45" />
           <Container className="relative flex h-full flex-col justify-end pb-12">
             <p className="text-label text-ochre">Range</p>
-            <h1 className="text-display mt-4 text-warm-white">{collection.name}</h1>
+            <h1 className="text-display mt-4 text-dark-foreground">{collection.name}</h1>
           </Container>
         </section>
       ) : (

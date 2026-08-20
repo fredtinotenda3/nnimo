@@ -53,9 +53,9 @@ export default async function AboutPage() {
         <Container>
           <div className="max-w-3xl pb-20 pt-32 lg:pb-28 lg:pt-44">
             <p className="text-label text-ochre">The Nnino legacy</p>
-            <h1 className="text-display mt-6 text-warm-white">{BRAND.tagline}</h1>
+            <h1 className="text-display mt-6 text-dark-foreground">{BRAND.tagline}</h1>
             {origin ? (
-              <p className="text-body-lg mt-8 text-warm-white/75">{origin}</p>
+              <p className="text-body-lg mt-8 text-dark-muted-foreground">{origin}</p>
             ) : null}
           </div>
         </Container>
@@ -184,7 +184,7 @@ export default async function AboutPage() {
       <section className="bg-charcoal">
         <Container>
           <div className="flex flex-col items-start gap-8 py-20 lg:flex-row lg:items-center lg:justify-between">
-            <h2 className="text-heading-1 max-w-xl text-warm-white">
+            <h2 className="text-heading-1 max-w-xl text-dark-foreground">
               Come and see the work
             </h2>
             <div className="flex flex-wrap gap-4">
@@ -195,7 +195,7 @@ export default async function AboutPage() {
                 asChild
                 size="lg"
                 variant="outline"
-                className="border-warm-white/40 text-warm-white hover:bg-warm-white/10"
+                className="border-dark-border text-dark-foreground hover:bg-dark-foreground/10"
               >
                 <Link href="/contact">Visit the studio</Link>
               </Button>

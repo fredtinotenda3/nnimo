@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -22,6 +21,7 @@ import { Section } from "@/components/ui/section";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MediaImage, type MediaRef } from "@/components/catalogue/media-image";
+import { ProductGallery } from "@/components/catalogue/product-gallery";
 import { AddToCart } from "@/components/commerce/add-to-cart";
 import { EnquireAboutPrice } from "@/components/commerce/enquire-about-price";
 import { ProductCard } from "@/components/catalogue/product-card";
@@ -38,8 +38,6 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const product = await getPublicProductBySlug(slug);
   if (!product) return { title: "Piece not found", robots: { index: false } };
 
-  // Falls back to a factual sentence rather than inventing marketing copy for a
-  // product whose description the business has not written yet.
   const description =
     product.description?.trim() ||
     [
@@ -80,7 +78,7 @@ export default async function ProductDetailPage({ params }: Params) {
   ]);
 
   const verdict = evaluatePurchasability({
-    lifecycleStage: "PUBLISHED", // getPublicProductBySlug already filtered on this
+    lifecycleStage: "PUBLISHED",
     availability: product.availability,
     price: product.price,
     inventory: product.inventory,
@@ -89,14 +87,11 @@ export default async function ProductDetailPage({ params }: Params) {
   const price = formatPriceOrRequest(product.price, product.currency);
   const availability = availabilityLabel(product.availability);
 
-  // Lead time is only stated when it is actually known: the product's own
-  // override, otherwise the studio-wide setting. Never a guess.
   const leadTimeDays = product.productionLeadTimeDays ?? defaultLeadTime;
   const showLeadTime =
     leadTimeDays !== null &&
     (product.availability === "MADE_TO_ORDER" || product.availability === "CUSTOM_ONLY");
 
-  /** Physical facts, each rendered only when recorded. */
   const specs: { label: string; value: string }[] = [];
   const dimensions = formatDimensions(product.heightCm, product.widthCm);
   const weight = formatWeight(product.weightKg);
@@ -112,6 +107,15 @@ export default async function ProductDetailPage({ params }: Params) {
   }
 
   const images = product.images;
+
+  // Resolve all image URLs here, on the server. ProductGallery is a client
+  // component and must not import @/lib/media.
+  const galleryImages = images.map((image: ProductImageRow) => ({
+    id: image.id,
+    url: resolveMediaUrl(image.media),
+    altText: image.media.altText,
+  }));
+
   const enquiryMessage = `Hello Nnino Ceramics, I am interested in "${product.name}".`;
 
   return (
@@ -176,39 +180,22 @@ export default async function ProductDetailPage({ params }: Params) {
         </nav>
 
         <div className="mt-10 grid gap-12 lg:grid-cols-12 lg:gap-16">
-          {/* ------------------------------------------------------- Photography */}
           <div className="lg:col-span-7">
-            <div className="relative aspect-[4/5] w-full overflow-hidden bg-surface-sunken">
-              <MediaImage
-                media={images[0]?.media ?? null}
-                fallbackTitle={product.name}
-                fallbackSubtitle={product.collection?.name ?? null}
-                sizes="(min-width: 1024px) 58vw, 100vw"
-                priority
-              />
-            </div>
-
-            {images.length > 1 ? (
-              <ul className="mt-4 grid grid-cols-4 gap-3">
-                {images.slice(1, 5).map((image: ProductImageRow) => (
-                  <li
-                    key={image.id}
-                    className="relative aspect-square overflow-hidden bg-surface-sunken"
-                  >
-                    <Image
-                      src={resolveMediaUrl(image.media)}
-                      alt={image.media.altText?.trim() || `${product.name}, another view`}
-                      fill
-                      sizes="(min-width: 1024px) 14vw, 22vw"
-                      className="object-cover"
-                    />
-                  </li>
-                ))}
-              </ul>
-            ) : null}
+            {images.length > 0 ? (
+              <ProductGallery images={galleryImages} productName={product.name} />
+            ) : (
+              <div className="relative aspect-4/5 w-full overflow-hidden bg-surface-sunken">
+                <MediaImage
+                  media={null}
+                  fallbackTitle={product.name}
+                  fallbackSubtitle={product.collection?.name ?? null}
+                  sizes="(min-width: 1024px) 58vw, 100vw"
+                  priority
+                />
+              </div>
+            )}
           </div>
 
-          {/* ------------------------------------------------------------ Details */}
           <div className="lg:col-span-5">
             {product.collection ? (
               <Link
@@ -258,13 +245,6 @@ export default async function ProductDetailPage({ params }: Params) {
               </p>
             ) : null}
 
-            {/*
-              Purchasability is decided on the SERVER, by the same
-              evaluatePurchasability() the cart and checkout call. A piece with no
-              source-verified price can never render add-to-cart, and the branch is
-              not a UI preference — addToCart re-evaluates it and refuses
-              regardless of what was rendered here.
-            */}
             <div className="mt-10 flex flex-col gap-3">
               {verdict.purchasable ? (
                 <AddToCart

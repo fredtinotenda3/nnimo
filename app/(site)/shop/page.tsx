@@ -24,6 +24,7 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
+const PAGE_SIZE = 24;
 const AVAILABILITY_VALUES = Object.keys(AVAILABILITY_LABEL);
 const SORT_VALUES: string[] = SORT_OPTIONS.map((option) => option.value);
 
@@ -68,6 +69,15 @@ export default async function ShopPage({
   const sortParam = first(raw.sort).trim();
   const sort = SORT_VALUES.includes(sortParam) ? sortParam : "featured";
 
+  // Added Phase 9. The catalogue previously hard-capped at 60 results with a
+  // footnote promising pagination "in Phase 3" — Phase 3 (guest checkout) had
+  // long since shipped, and the cap simply hid anything past the 60th piece
+  // with no way to reach it. `page` is validated the same way every other
+  // filter on this page is: parsed, bounds-checked, and silently corrected
+  // rather than echoed back if invalid.
+  const pageParam = Number.parseInt(first(raw.page), 10);
+  const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
+
   const where = {
     ...PUBLIC_PRODUCT_WHERE,
     ...(q
@@ -85,11 +95,12 @@ export default async function ShopPage({
     ...(availability ? { availability: availability as never } : {}),
   };
 
-  const [pieces, collections, totalPublished] = await Promise.all([
+  const [pieces, collections, filteredCount] = await Promise.all([
     db.product.findMany({
       where,
       orderBy: buildOrderBy(sort),
-      take: 60,
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
       select: {
         id: true,
         name: true,
@@ -124,10 +135,24 @@ export default async function ShopPage({
       orderBy: { sortOrder: "asc" },
       select: { name: true, slug: true },
     }),
-    db.product.count({ where: PUBLIC_PRODUCT_WHERE }),
+    db.product.count({ where }),
   ]);
 
   const filtered = Boolean(q || collectionSlug || availability);
+  const totalPages = Math.max(1, Math.ceil(filteredCount / PAGE_SIZE));
+  // A page number past the last real page (e.g. filters just narrowed the
+  // result set) still renders — an empty grid plus working "previous" is
+  // more honest than silently clamping to a different page than the URL says.
+  const buildPageHref = (targetPage: number) => {
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (collectionSlug) params.set("collection", collectionSlug);
+    if (availability) params.set("availability", availability);
+    if (sort !== "featured") params.set("sort", sort);
+    if (targetPage > 1) params.set("page", String(targetPage));
+    const qs = params.toString();
+    return qs ? `/shop?${qs}` : "/shop";
+  };
 
   return (
     <>
@@ -159,8 +184,8 @@ export default async function ShopPage({
 
         <div className="mt-10 flex items-baseline justify-between gap-4">
           <p className="text-metadata text-muted-foreground">
-            {pieces.length === 1 ? "1 piece" : `${pieces.length} pieces`}
-            {filtered && totalPublished > 0 ? ` of ${totalPublished}` : ""}
+            {filteredCount === 1 ? "1 piece" : `${filteredCount} pieces`}
+            {totalPages > 1 ? ` · page ${page} of ${totalPages}` : ""}
           </p>
         </div>
 
@@ -198,11 +223,29 @@ export default async function ShopPage({
           )}
         </div>
 
-        {pieces.length === 60 ? (
-          <p className="text-body-sm mt-12 text-muted-foreground">
-            Showing the first 60 pieces. Narrow by range to see more — pagination
-            arrives with the cart in Phase 3.
-          </p>
+        {totalPages > 1 ? (
+          <nav
+            aria-label="Shop pages"
+            className="mt-16 flex items-center justify-between gap-4 border-t border-border pt-8"
+          >
+            {page > 1 ? (
+              <Button asChild variant="outline" size="sm">
+                <Link href={buildPageHref(page - 1)}>Previous</Link>
+              </Button>
+            ) : (
+              <span aria-hidden="true" />
+            )}
+            <p className="text-metadata text-muted-foreground">
+              Page {page} of {totalPages}
+            </p>
+            {page < totalPages ? (
+              <Button asChild variant="outline" size="sm">
+                <Link href={buildPageHref(page + 1)}>Next</Link>
+              </Button>
+            ) : (
+              <span aria-hidden="true" />
+            )}
+          </nav>
         ) : null}
       </Section>
     </>

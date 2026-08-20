@@ -62,12 +62,12 @@ export default async function CustomPage({
         <div className="grid lg:grid-cols-2">
           <div className="order-2 flex flex-col justify-center px-5 pb-20 pt-14 sm:px-8 lg:order-1 lg:px-14 lg:py-28">
             <p className="text-label text-ochre">Commissions</p>
-            <h1 className="text-display mt-6 text-warm-white">
+            <h1 className="text-display mt-6 text-dark-foreground">
               Have a piece
               <br />
               made for you
             </h1>
-            <p className="text-body-lg mt-8 max-w-md text-warm-white/75">
+            <p className="text-body-lg mt-8 max-w-md text-dark-muted-foreground">
               {copy.get("commissions.intro") ??
                 "Nnino works to commission: sculptures, corporate and branded pieces, dinner services, and pieces for events. Every commission is designed and made by hand in the Bulawayo studio."}
             </p>

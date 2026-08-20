@@ -42,7 +42,11 @@
   --color-muted-foreground: #6b6157; /* Stone Grey, darkened for AA body text */
 
   --color-border: #e7dfd4; /* Hairline, decorative separation */
-  --color-border-strong: #d4c9ba; /* Inputs, outlined controls */
+  --color-border-strong: #8a7e72; /* Inputs, outlined controls — re-tuned to the Stone
+    brand hex for Phase 9. #D4C9BA measured 1.63:1 on white, below the 3:1 WCAG
+    2.2 §1.4.11 non-text boundary threshold for the only affordance marking a
+    control's edge. #8A7E72 (Stone, already in the brand palette) measures
+    3.96:1 and needs no new colour. */
   --color-ring: #b85c3a; /* Focus ring — brand terracotta */
 
   /* --- 3. Semantic actions ------------------------------------------------ */
@@ -59,6 +63,33 @@
 
   --color-destructive: #a33a28; /* Kept inside the earth family, not a UI red */
   --color-destructive-foreground: #ffffff;
+
+  /* Added Phase 9 — the brief's §12 semantic list had success/warning/information
+     with no equivalent, so admin components (stock levels, order status,
+     payment state) had nowhere in-system to reach for. Each stays inside the
+     earth palette rather than introducing a UI green/amber/blue; each measures
+     above 5:1 for white text on the fill and above 4.5:1 as body text on
+     Warm White, so they work as solid badges and as plain coloured text. */
+  --color-success: #4e6b3f; /* Clay Green, deepened — 6.0:1 white-on-fill, 5.62:1 on Warm White */
+  --color-success-foreground: #ffffff;
+
+  --color-warning: #8a5f1f; /* Ochre, deepened — 5.62:1 white-on-fill, 5.26:1 on Warm White */
+  --color-warning-foreground: #ffffff;
+
+  --color-information: #3f5566; /* Stone, shifted toward slate — 7.77:1 white-on-fill, 7.27:1 on Warm White */
+  --color-information-foreground: #ffffff;
+
+  /* Added Phase 9 — a named dark-surface set. The charcoal hero and closing
+     sections previously improvised with `text-warm-white/75`-style opacity
+     utilities per section; each measured acceptably (documented below) but
+     every new dark section re-guessed the numbers. Naming them once removes
+     the guesswork without changing how any existing section already looks. */
+  --color-dark-surface: #2c2c2c; /* = --color-charcoal, named for this role */
+  --color-dark-foreground: #faf7f2; /* Warm White on charcoal — 13.07:1 */
+  --color-dark-muted-foreground: #c6c4c0; /* = Warm White at 75% over charcoal, composited — was
+    the `text-warm-white/75` opacity utility; same 8.02:1, now a token instead of a per-section guess */
+  --color-dark-border: #7e7d7b; /* = Warm White at 40% over charcoal, composited — was
+    `border-warm-white/40`; same 3.40:1 non-text ratio, now a token */
 
   /* --- 4. Typefaces ------------------------------------------------------- */
   /* Loaded and self-hosted by next/font in app/layout.tsx. */
@@ -181,6 +212,19 @@
   text-transform: uppercase;
 }
 
+/* Added Phase 9 — buttons previously reused `text-nav` directly, which meant
+   an editorial nav-scale change would silently reflow every button. Same
+   values today; a distinct role so the two can diverge later without
+   touching navigation. */
+@utility text-button {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 0.8125rem;
+  line-height: 1;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
 /* Pull quotes and story openings. */
 @utility text-quote {
   font-family: var(--font-editorial);
@@ -242,6 +286,21 @@
       transition-duration: 0.01ms !important;
     }
   }
+}
+
+/* Added Phase 9 — line length was controlled ad hoc per page with `max-w-*`
+   utilities sized in pixels/rem rather than characters, so long-form pages
+   (About, Family, Custom, editorial copy) could drift wider or narrower than
+   is comfortable to read as the type scale changes. `ch` ties the measure to
+   the actual rendered character width of whichever font is active. 68ch sits
+   in the middle of the 45–75ch range typography guidance generally treats as
+   comfortable for continuous prose. */
+@utility measure {
+  max-width: 68ch;
+}
+
+@utility measure-narrow {
+  max-width: 52ch;
 }
 
 /* ===========================================================================

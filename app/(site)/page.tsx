@@ -60,15 +60,27 @@ export default async function HomePage() {
       {/* ============================================================== 1. Hero
           Split rather than full-bleed: the supplied photograph is 810x1080, and
           stretching it across a 1440px viewport would soften the one thing that
-          has to look sharp. Type holds the left, the piece holds the right. */}
+          has to look sharp. Type holds the left, the piece holds the right.
+
+          Art direction (Phase 9): checked object-cover's crop direction against
+          the container's aspect ratio at every breakpoint currently in use —
+          mobile's 4:5 frame (0.80) and the desktop min-h-[92svh] column (>0.75
+          on any realistic viewport) are both wider, relative to height, than the
+          source photograph's 0.75 ratio, so object-cover always trims the sides
+          and never the top or bottom; the full height of the piece stays in
+          frame at every size this ships at today. The focal point — the four
+          giraffe heads forming the lid handle — sits slightly above centre, so
+          object-position is set explicitly rather than left to the 50/50
+          default, as a guard for any future container ratio narrow enough to
+          crop vertically instead. */}
       <section className="relative bg-charcoal">
         <div className="grid lg:min-h-[92svh] lg:grid-cols-2">
           <div className="order-2 flex flex-col justify-center px-5 pb-20 pt-14 sm:px-8 lg:order-1 lg:px-14 lg:py-28 xl:px-20">
             <p className="text-label text-ochre">
               {BRAND.city}, {BRAND.country}
             </p>
-            <h1 className="text-display mt-6 text-warm-white">{headline}</h1>
-            <p className="text-body-lg mt-8 max-w-md text-warm-white/75">
+            <h1 className="text-display mt-6 text-dark-foreground">{headline}</h1>
+            <p className="text-body-lg mt-8 max-w-md text-dark-muted-foreground">
               Individually designed, hand sculptured, hand painted, and signed at the
               bottom of every piece.
             </p>
@@ -80,7 +92,7 @@ export default async function HomePage() {
                 asChild
                 size="lg"
                 variant="outline"
-                className="border-warm-white/40 text-warm-white hover:bg-warm-white/10"
+                className="border-dark-border text-dark-foreground hover:bg-dark-foreground/10"
               >
                 <Link href="/about">The Nnino story</Link>
               </Button>
@@ -95,7 +107,7 @@ export default async function HomePage() {
               height={HERO_PIECE.height}
               priority
               sizes="(min-width: 1024px) 50vw, 100vw"
-              className="h-full w-full object-cover"
+              className="h-full w-full object-cover object-[50%_42%]"
             />
           </div>
         </div>
@@ -343,8 +355,8 @@ export default async function HomePage() {
         <Container>
           <div className="flex flex-col items-start gap-8 py-20 lg:flex-row lg:items-center lg:justify-between lg:py-28">
             <div>
-              <h2 className="text-heading-1 max-w-xl text-warm-white">{BRAND.tagline}</h2>
-              <p className="text-body mt-4 max-w-md text-warm-white/70">
+              <h2 className="text-heading-1 max-w-xl text-dark-foreground">{BRAND.tagline}</h2>
+              <p className="text-body mt-4 max-w-md text-dark-muted-foreground">
                 Visit the studio at {BRAND.addressLines[0]}, {BRAND.addressLines[1]}, or
                 send a message.
               </p>
@@ -357,7 +369,7 @@ export default async function HomePage() {
                 asChild
                 size="lg"
                 variant="outline"
-                className="border-warm-white/40 text-warm-white hover:bg-warm-white/10"
+                className="border-dark-border text-dark-foreground hover:bg-dark-foreground/10"
               >
                 <Link href="/collections">Explore collections</Link>
               </Button>

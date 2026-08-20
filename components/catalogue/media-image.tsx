@@ -51,8 +51,8 @@ export function MediaImage({
         {fallbackSubtitle ? (
           <span className="text-metadata text-muted-foreground">{fallbackSubtitle}</span>
         ) : null}
-        <span className="text-metadata mt-1 text-muted-foreground/70">
-          Photograph to follow
+        <span className="text-metadata mt-1 text-muted-foreground">
+          Studio photography coming soon
         </span>
       </div>
     );

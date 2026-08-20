@@ -4,7 +4,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "text-nav inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius-sm)] transition-colors duration-200 disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-4 [&_svg]:shrink-0",
+  "text-button inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius-sm)] transition-[background-color,color,border-color,opacity] duration-200 disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
@@ -37,17 +37,46 @@ export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
+  /** Added Phase 9. Shows an inline spinner and disables the button without
+   * changing its size, so a submit action doesn't jump the layout. Only
+   * applies with the default `button` rendering — has no effect combined
+   * with `asChild`, since the wrapped element (usually a `Link`) has no
+   * meaningful disabled/loading state of its own. */
+  isLoading?: boolean;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button";
+  (
+    { className, variant, size, asChild = false, isLoading = false, disabled, children, ...props },
+    ref,
+  ) => {
+    if (asChild) {
+      return (
+        <Slot
+          className={cn(buttonVariants({ variant, size, className }))}
+          ref={ref}
+          {...props}
+        >
+          {children}
+        </Slot>
+      );
+    }
     return (
-      <Comp
+      <button
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
+        disabled={disabled || isLoading}
+        aria-busy={isLoading || undefined}
         {...props}
-      />
+      >
+        {isLoading ? (
+          <span
+            aria-hidden="true"
+            className="h-3.5 w-3.5 animate-spin rounded-full border-[1.5px] border-current border-t-transparent motion-reduce:animate-none"
+          />
+        ) : null}
+        <span className={isLoading ? "opacity-90" : undefined}>{children}</span>
+      </button>
     );
   },
 );

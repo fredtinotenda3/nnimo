@@ -69,8 +69,8 @@ export default function ContactPage() {
         <Container>
           <div className="max-w-3xl pb-16 pt-32 lg:pb-24 lg:pt-44">
             <p className="text-label text-ochre">Get in touch</p>
-            <h1 className="text-display mt-6 text-warm-white">Contact</h1>
-            <p className="text-body-lg mt-8 max-w-xl text-warm-white/75">
+            <h1 className="text-display mt-6 text-dark-foreground">Contact</h1>
+            <p className="text-body-lg mt-8 max-w-xl text-dark-muted-foreground">
               The studio is in {BRAND.city}. Call, email, message on WhatsApp, or send
               the form and someone will come back to you.
             </p>

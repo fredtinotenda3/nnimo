@@ -54,7 +54,7 @@ export default async function FamilyPage() {
           <div aria-hidden="true" className="absolute inset-0 bg-charcoal/50" />
           <Container className="relative flex h-full flex-col justify-end pb-12">
             <p className="text-label text-ochre">The people</p>
-            <h1 className="text-display mt-4 text-warm-white">The Nnino family</h1>
+            <h1 className="text-display mt-4 text-dark-foreground">The Nnino family</h1>
           </Container>
         </div>
       </section>
