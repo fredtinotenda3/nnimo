@@ -43,18 +43,18 @@ type EditorialSlotDefinition = {
 };
 
 const EDITORIAL_SLOTS: Record<EditorialSlotKey, EditorialSlotDefinition> = {
-  "hero-alternate": { path: "hero/alternate.png", alt: "" },
-  "craft-clay": { path: "craft/clay.png", alt: "" },
-  "craft-hands": { path: "craft/hands.png", alt: "" },
-  "craft-kiln": { path: "craft/kiln.png", alt: "" },
-  "studio-interior": { path: "studio/interior.png", alt: "" },
-  "studio-exterior": { path: "studio/exterior.png", alt: "" },
-  "custom-atmosphere": { path: "custom/atmosphere.png", alt: "" },
-  "editorial-texture": { path: "editorial/texture.png", alt: "" },
-  "collection-atmosphere": { path: "collection-atmosphere/default.png", alt: "" },
-  "about-atmosphere": { path: "about/atmosphere.png", alt: "" },
-  "family-atmosphere": { path: "family/atmosphere.png", alt: "" },
-  "contact-atmosphere": { path: "contact/atmosphere.png", alt: "" },
+  "hero-alternate": { path: "hero/alternate.jfif", alt: "" },
+  "craft-clay": { path: "craft/clay.jfif", alt: "" },
+  "craft-hands": { path: "craft/hands.jfif", alt: "" },
+  "craft-kiln": { path: "craft/kiln.jfif", alt: "" },
+  "studio-interior": { path: "studio/interior.jfif", alt: "" },
+  "studio-exterior": { path: "studio/exterior.jfif", alt: "" },
+  "custom-atmosphere": { path: "custom/atmosphere.jfif", alt: "" },
+  "editorial-texture": { path: "editorial/texture.jfif", alt: "" },
+  "collection-atmosphere": { path: "collection-atmosphere/default.jfif", alt: "" },
+  "about-atmosphere": { path: "about/atmosphere.jfif", alt: "" },
+  "family-atmosphere": { path: "family/atmosphere.jfif", alt: "" },
+  "contact-atmosphere": { path: "contact/atmosphere.jfif", alt: "" },
 };
 
 export type ResolvedEditorialImage =

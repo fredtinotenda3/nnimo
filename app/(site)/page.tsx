@@ -203,7 +203,7 @@ export default async function HomePage() {
           photograph lands at public/images/hero/alternate.png — see
           lib/editorial-images.ts. */}
       <Section contained={false} className="py-0">
-        <div className="relative aspect-[21/9] w-full overflow-hidden">
+        <div className="relative aspect-21/9 w-full overflow-hidden">
           <EditorialImage
             slot="hero-alternate"
             caption="Nnino Ceramics"
