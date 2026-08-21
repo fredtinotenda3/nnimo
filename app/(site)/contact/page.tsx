@@ -5,6 +5,7 @@ import { serialiseJsonLd } from "@/lib/security/json-ld";
 import { Container } from "@/components/ui/container";
 import { Section } from "@/components/ui/section";
 import { ContactForm } from "@/components/site/contact-form";
+import { EditorialImage } from "@/components/site/editorial-image";
 
 export const metadata: Metadata = {
   title: "Contact",
@@ -78,6 +79,18 @@ export default function ContactPage() {
         </Container>
       </section>
 
+      {/* Contact/visit atmosphere break — see
+          public/images/contact/atmosphere.png in lib/editorial-images.ts. */}
+      <Section contained={false} className="py-0">
+        <div className="relative aspect-[21/9] w-full overflow-hidden">
+          <EditorialImage
+            slot="contact-atmosphere"
+            caption="Visit the studio"
+            sizes="100vw"
+          />
+        </div>
+      </Section>
+
       <Section>
         <div className="grid gap-12 lg:grid-cols-12 lg:gap-16">
           <div className="lg:col-span-5">
@@ -121,6 +134,29 @@ export default function ContactPage() {
             <div className="mt-8">
               <ContactForm />
             </div>
+          </div>
+        </div>
+      </Section>
+
+      {/* The studio, inside and out — see public/images/studio/interior.png
+          and public/images/studio/exterior.png in lib/editorial-images.ts. */}
+      <Section tone="sunken">
+        <p className="text-label text-muted-foreground">The studio</p>
+        <h2 className="text-heading-1 mt-3">Inside and out</h2>
+        <div className="mt-12 grid gap-3 sm:grid-cols-2 lg:gap-4">
+          <div className="relative aspect-[4/3] overflow-hidden">
+            <EditorialImage
+              slot="studio-interior"
+              caption="Studio interior"
+              sizes="(min-width: 640px) 50vw, 100vw"
+            />
+          </div>
+          <div className="relative aspect-[4/3] overflow-hidden">
+            <EditorialImage
+              slot="studio-exterior"
+              caption="Studio exterior"
+              sizes="(min-width: 640px) 50vw, 100vw"
+            />
           </div>
         </div>
       </Section>

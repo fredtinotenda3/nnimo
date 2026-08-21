@@ -7,6 +7,7 @@ import { BRAND, whatsappLink } from "@/lib/brand";
 import { Section } from "@/components/ui/section";
 import { Button } from "@/components/ui/button";
 import { CommissionForm } from "@/components/site/commission-form";
+import { EditorialImage } from "@/components/site/editorial-image";
 
 export const metadata: Metadata = {
   title: "Custom Commissions",
@@ -99,6 +100,18 @@ export default async function CustomPage({
             </li>
           ))}
         </ol>
+      </Section>
+
+      {/* Commission atmosphere break — see public/images/custom/atmosphere.png
+          in lib/editorial-images.ts. */}
+      <Section contained={false} className="py-0">
+        <div className="relative aspect-[21/9] w-full overflow-hidden">
+          <EditorialImage
+            slot="custom-atmosphere"
+            caption="Made to order"
+            sizes="100vw"
+          />
+        </div>
       </Section>
 
       <Section tone="sunken">

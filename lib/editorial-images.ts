@@ -43,18 +43,18 @@ type EditorialSlotDefinition = {
 };
 
 const EDITORIAL_SLOTS: Record<EditorialSlotKey, EditorialSlotDefinition> = {
-  "hero-alternate": { path: "hero/alternate.webp", alt: "" },
-  "craft-clay": { path: "craft/clay.webp", alt: "" },
-  "craft-hands": { path: "craft/hands.webp", alt: "" },
-  "craft-kiln": { path: "craft/kiln.webp", alt: "" },
-  "studio-interior": { path: "studio/interior.webp", alt: "" },
-  "studio-exterior": { path: "studio/exterior.webp", alt: "" },
-  "custom-atmosphere": { path: "custom/atmosphere.webp", alt: "" },
-  "editorial-texture": { path: "editorial/texture.webp", alt: "" },
-  "collection-atmosphere": { path: "collection-atmosphere/default.webp", alt: "" },
-  "about-atmosphere": { path: "about/atmosphere.webp", alt: "" },
-  "family-atmosphere": { path: "family/atmosphere.webp", alt: "" },
-  "contact-atmosphere": { path: "contact/atmosphere.webp", alt: "" },
+  "hero-alternate": { path: "hero/alternate.png", alt: "" },
+  "craft-clay": { path: "craft/clay.png", alt: "" },
+  "craft-hands": { path: "craft/hands.png", alt: "" },
+  "craft-kiln": { path: "craft/kiln.png", alt: "" },
+  "studio-interior": { path: "studio/interior.png", alt: "" },
+  "studio-exterior": { path: "studio/exterior.png", alt: "" },
+  "custom-atmosphere": { path: "custom/atmosphere.png", alt: "" },
+  "editorial-texture": { path: "editorial/texture.png", alt: "" },
+  "collection-atmosphere": { path: "collection-atmosphere/default.png", alt: "" },
+  "about-atmosphere": { path: "about/atmosphere.png", alt: "" },
+  "family-atmosphere": { path: "family/atmosphere.png", alt: "" },
+  "contact-atmosphere": { path: "contact/atmosphere.png", alt: "" },
 };
 
 export type ResolvedEditorialImage =

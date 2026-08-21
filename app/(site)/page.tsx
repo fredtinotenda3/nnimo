@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ProductCard } from "@/components/catalogue/product-card";
 import { CollectionCard } from "@/components/catalogue/collection-card";
+import { EditorialImage } from "@/components/site/editorial-image";
 
 export const metadata: Metadata = {
   title: "Nnino Ceramics — Made By Hand, With Heart",
@@ -196,6 +197,21 @@ export default async function HomePage() {
         </div>
       </Section>
 
+      {/* ============================================== 4.5. Hero alternate break
+          Full-bleed editorial break between the catalogue sections and the
+          craftsmanship story. Renders a "coming soon" panel until a real
+          photograph lands at public/images/hero/alternate.png — see
+          lib/editorial-images.ts. */}
+      <Section contained={false} className="py-0">
+        <div className="relative aspect-[21/9] w-full overflow-hidden">
+          <EditorialImage
+            slot="hero-alternate"
+            caption="Nnino Ceramics"
+            sizes="100vw"
+          />
+        </div>
+      </Section>
+
       {/* ===================================================== 5. Craftsmanship */}
       <Section tone="sunken">
         <div className="grid items-center gap-12 lg:grid-cols-12 lg:gap-16">
@@ -266,6 +282,19 @@ export default async function HomePage() {
             </li>
           ))}
         </ul>
+      </Section>
+
+      {/* ============================================ 6.5. Editorial texture break
+          Section break using general material/texture imagery — see
+          public/images/editorial/texture.png in lib/editorial-images.ts. */}
+      <Section contained={false} className="py-0">
+        <div className="relative aspect-[16/6] w-full overflow-hidden">
+          <EditorialImage
+            slot="editorial-texture"
+            caption="Material & texture"
+            sizes="100vw"
+          />
+        </div>
       </Section>
 
       {/* ================================================ 7. Nnino Family preview */}

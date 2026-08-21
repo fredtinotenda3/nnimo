@@ -11,6 +11,7 @@ import { Section } from "@/components/ui/section";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ProductCard, type ProductCardProps } from "@/components/catalogue/product-card";
+import { EditorialImage } from "@/components/site/editorial-image";
 
 export const dynamic = "force-dynamic";
 
@@ -100,6 +101,23 @@ export default async function CollectionDetailPage({ params }: Params) {
           <h1 className="text-display mt-4">{collection.name}</h1>
         </Section>
       )}
+
+      {/* Generic mood imagery, only when this range has no hero photograph of
+          its own — real collection photography (collection.heroImage, via
+          Admin → Media) always takes priority. See
+          public/images/collection-atmosphere/default.png in
+          lib/editorial-images.ts. */}
+      {!collection.heroImage ? (
+        <Section contained={false} className="py-0">
+          <div className="relative aspect-[21/9] w-full overflow-hidden">
+            <EditorialImage
+              slot="collection-atmosphere"
+              caption={`${collection.name} range`}
+              sizes="100vw"
+            />
+          </div>
+        </Section>
+      ) : null}
 
       <Section>
         {collection.description || collection.story ? (

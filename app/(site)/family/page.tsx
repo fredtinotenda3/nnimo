@@ -9,6 +9,7 @@ import { Container } from "@/components/ui/container";
 import { Section } from "@/components/ui/section";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { EditorialImage } from "@/components/site/editorial-image";
 
 export const metadata: Metadata = {
   title: "The Nnino Family",
@@ -131,6 +132,14 @@ export default async function FamilyPage() {
             drafted for them.
           </p>
         ) : null}
+      </Section>
+
+      {/* Editorial atmosphere break — see public/images/family/atmosphere.png
+          in lib/editorial-images.ts. */}
+      <Section contained={false} className="py-0">
+        <div className="relative aspect-[21/9] w-full overflow-hidden">
+          <EditorialImage slot="family-atmosphere" caption="The Nnino family" sizes="100vw" />
+        </div>
       </Section>
 
       <Section tone="sunken">

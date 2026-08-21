@@ -7,6 +7,7 @@ import { Section } from "@/components/ui/section";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { CollectionCard } from "@/components/catalogue/collection-card";
+import { EditorialImage } from "@/components/site/editorial-image";
 
 export const metadata: Metadata = {
   title: "Collections",
@@ -42,6 +43,14 @@ export default async function CollectionsPage() {
           Each range is developed as a family of pieces — the same hand, the same
           palette, worked across tableware, vessels and sculpture.
         </p>
+
+        <div className="relative mt-16 aspect-[21/9] w-full overflow-hidden">
+          <EditorialImage
+            slot="collection-atmosphere"
+            caption="The collections"
+            sizes="100vw"
+          />
+        </div>
 
         <div className="mt-16">
           {collections.length === 0 ? (

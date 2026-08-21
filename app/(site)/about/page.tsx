@@ -7,6 +7,7 @@ import { ANTELOPE_VASE, TEAM_PHOTO } from "@/lib/brand-assets";
 import { Container } from "@/components/ui/container";
 import { Section } from "@/components/ui/section";
 import { Button } from "@/components/ui/button";
+import { EditorialImage } from "@/components/site/editorial-image";
 
 export const metadata: Metadata = {
   title: "About",
@@ -60,6 +61,14 @@ export default async function AboutPage() {
           </div>
         </Container>
       </section>
+
+      {/* Editorial atmosphere break, directly under the hero — see
+          public/images/about/atmosphere.png in lib/editorial-images.ts. */}
+      <Section contained={false} className="py-0">
+        <div className="relative aspect-[21/9] w-full overflow-hidden">
+          <EditorialImage slot="about-atmosphere" caption="The Nnino studio" sizes="100vw" />
+        </div>
+      </Section>
 
       {products ? (
         <Section>
@@ -118,6 +127,36 @@ export default async function AboutPage() {
             ) : null}
           </div>
         </div>
+      </Section>
+
+      {/* The process, in three steps — see public/images/craft/ in
+          lib/editorial-images.ts (clay, hands, kiln). */}
+      <Section tone="sunken">
+        <p className="text-label text-muted-foreground">The process</p>
+        <h2 className="text-heading-1 mt-3">Clay, hand and kiln</h2>
+        <ul className="mt-12 grid gap-3 sm:grid-cols-3">
+          <li className="relative aspect-[3/4] overflow-hidden">
+            <EditorialImage
+              slot="craft-clay"
+              caption="Clay"
+              sizes="(min-width: 640px) 33vw, 100vw"
+            />
+          </li>
+          <li className="relative aspect-[3/4] overflow-hidden">
+            <EditorialImage
+              slot="craft-hands"
+              caption="Hands at work"
+              sizes="(min-width: 640px) 33vw, 100vw"
+            />
+          </li>
+          <li className="relative aspect-[3/4] overflow-hidden">
+            <EditorialImage
+              slot="craft-kiln"
+              caption="The kiln"
+              sizes="(min-width: 640px) 33vw, 100vw"
+            />
+          </li>
+        </ul>
       </Section>
 
       {founder ? (

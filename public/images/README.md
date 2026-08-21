@@ -28,8 +28,28 @@ file exists on disk:
 ## Adding a photograph
 
 1. Drop the file at the path named in `lib/editorial-images.ts` for that
-   slot (e.g. `studio-interior` expects `/public/images/studio/interior.webp`).
+   slot (e.g. `studio-interior` expects `/public/images/studio/interior.png`).
 2. That's it — no component code changes. The next request picks it up.
+
+## Where each slot is wired in (Phase 10)
+
+Every slot in `lib/editorial-images.ts` is now rendered somewhere on the
+live site via `<EditorialImage slot="..." />`, even while empty:
+
+| Slot | Page | Section |
+|---|---|---|
+| `hero-alternate` | Homepage (`/`) | Full-bleed break after "In the gallery" |
+| `craft-clay`, `craft-hands`, `craft-kiln` | About (`/about`) | "The process" three-image strip |
+| `studio-interior`, `studio-exterior` | Contact (`/contact`) | "Inside and out" two-image gallery |
+| `custom-atmosphere` | Custom (`/custom`) | Full-bleed break before the tureen gallery |
+| `editorial-texture` | Homepage (`/`) | Full-bleed break after "The Nnino legacy" |
+| `collection-atmosphere` | Collections (`/collections`) and each range (`/collections/[slug]`) | Banner under the intro; on a range page, only when that range has no `heroImage` of its own |
+| `about-atmosphere` | About (`/about`) | Full-bleed break under the hero |
+| `family-atmosphere` | Family (`/family`) | Full-bleed break before the closing CTA |
+| `contact-atmosphere` | Contact (`/contact`) | Full-bleed break under the hero |
+
+Filling in a photograph never requires touching any of these pages — only
+the file at the named path.
 
 ## Folders
 
