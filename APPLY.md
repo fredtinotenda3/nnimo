@@ -80,7 +80,7 @@ See `public/images/README.md` for the full explanation. Short version:
 
 1. Drop a file at the path named for the slot you want in
    `lib/editorial-images.ts` (e.g. `craft-hands` expects
-   `public/images/craft/hands.webp`).
+   `public/images/craft/hands.png`).
 2. That's it. No component changes needed — `resolveEditorialImage()` checks
    the filesystem per-request.
 3. No slot is currently used by any page — see `PHASE-9-REPORT.md` §3 for why

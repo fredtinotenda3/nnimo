@@ -41,7 +41,7 @@ I read them rather than assume. As far as I checked, the content is **accurate**
   disclose the sandbox enum shim.
 - They correctly describe design decisions I made and my reasons for them —
   including why `adminMutation` was *not* folded into `requirePermission()`, and why
-  the OG image is generated rather than pointing at `hero-giraffe-tureen.webp`.
+  the OG image is generated rather than pointing at `hero-giraffe-tureen.png`.
 - **No fabricated metrics.** No invented credentials. No hardcoded secrets. No
   invented Nnino business data. I grepped specifically for all four, because those
   are your standing prohibitions.

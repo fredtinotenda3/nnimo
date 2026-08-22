@@ -304,7 +304,7 @@ that needs confirming somewhere the Prisma engine can actually download.
 - [ ] Tab through a product page's gallery and the fullscreen lightbox
       keyboard-only; confirm the focus trap holds inside the lightbox and
       Shift+Tab wraps correctly.
-- [ ] Drop a real `.webp` file at, e.g., `public/images/studio/interior.webp`
+- [ ] Drop a real `.png` file at, e.g., `public/images/studio/interior.png`
       and confirm any future `<EditorialImage slot="studio-interior" .../>`
       usage picks it up without a code change (no consuming usage exists yet
       — this checks the registry mechanism itself).

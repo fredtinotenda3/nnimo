@@ -66,5 +66,5 @@ the file at the named path.
 | `family/` | Family/team page editorial imagery (individual portraits still belong in the `Media` table via the admin, so they can be attached to a named team member) |
 | `contact/` | Contact/visit-the-studio page imagery |
 
-Prefer `.webp`. Keep originals reasonably sized — this directory is served
+Prefer `.png`. Keep originals reasonably sized — this directory is served
 statically and bundled with every deploy, unlike `Media` table uploads.

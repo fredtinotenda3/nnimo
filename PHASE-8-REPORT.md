@@ -204,7 +204,7 @@ at boot via the same function, so there's one implementation and no drift.
 
 **M6 — social preview.** `app/opengraph-image.tsx` generates a 1200×630 typographic
 card in the brand palette, reproducing the gallery-label device from `globals.css`.
-Deliberately not pointing at `hero-giraffe-tureen.webp`: it's a WebP (inconsistent
+Deliberately not pointing at `hero-giraffe-tureen.png`: it's a WebP (inconsistent
 OG support, and WhatsApp is the channel that matters most here), it's the wrong ratio
 so a centre crop would decapitate the vessel, and it would promise one specific
 one-off piece on every share of every page. **Nothing invented** — studio name,

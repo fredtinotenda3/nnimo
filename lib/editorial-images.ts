@@ -22,6 +22,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 export type EditorialSlotKey =
+  | "hero-main"
   | "hero-alternate"
   | "craft-clay"
   | "craft-hands"
@@ -43,6 +44,7 @@ type EditorialSlotDefinition = {
 };
 
 const EDITORIAL_SLOTS: Record<EditorialSlotKey, EditorialSlotDefinition> = {
+  "hero-main": { path: "hero/main.png", alt: "" },
   "hero-alternate": { path: "hero/alternate.png", alt: "" },
   "craft-clay": { path: "craft/clay.png", alt: "" },
   "craft-hands": { path: "craft/hands.png", alt: "" },

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { db } from "@/lib/db";
 import { PUBLIC_PRODUCT_WHERE, getContentBlocks } from "@/lib/catalogue";
-import { GIRAFFE_TUREEN_VIEWS, HERO_PIECE } from "@/lib/brand-assets";
+import { COLLECTION_HIGHLIGHTS, CUSTOM_HERO_PIECE } from "@/lib/brand-assets";
 import { BRAND, whatsappLink } from "@/lib/brand";
 import { Section } from "@/components/ui/section";
 import { Button } from "@/components/ui/button";
@@ -75,8 +75,8 @@ export default async function CustomPage({
           </div>
           <div className="relative order-1 aspect-[4/5] w-full lg:order-2 lg:aspect-auto">
             <Image
-              src={HERO_PIECE.src}
-              alt={HERO_PIECE.alt}
+              src={CUSTOM_HERO_PIECE.src}
+              alt={CUSTOM_HERO_PIECE.alt}
               fill
               priority
               sizes="(min-width: 1024px) 50vw, 100vw"
@@ -116,7 +116,7 @@ export default async function CustomPage({
 
       <Section tone="sunken">
         <ul className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-          {GIRAFFE_TUREEN_VIEWS.map((view) => (
+          {COLLECTION_HIGHLIGHTS.map((view) => (
             <li key={view.src} className="relative aspect-square overflow-hidden">
               <Image
                 src={view.src}
@@ -129,8 +129,9 @@ export default async function CustomPage({
           ))}
         </ul>
         <p className="text-body-sm mt-6 max-w-2xl text-muted-foreground">
-          One commissioned tureen, photographed from every side. Each piece is
-          sculptured individually, so no two are the same.
+          A glimpse of a few of the studio&apos;s collections. Every commission is
+          sculptured individually, so no two pieces — yours included — are ever
+          the same.
         </p>
       </Section>
 

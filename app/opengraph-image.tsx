@@ -14,10 +14,10 @@ import { ImageResponse } from "next/og";
  *
  * WHY GENERATED RATHER THAN A PHOTOGRAPH
  *
- * The obvious move is to point at public/brand/hero-giraffe-tureen.webp. Three
+ * The obvious move is to point at public/brand/hero-giraffe-tureen.png. Three
  * reasons not to:
  *
- *   1. It is a .webp. OG/Twitter support for WebP is inconsistent, and WhatsApp in
+ *   1. It is a .png. OG/Twitter support for WebP is inconsistent, and WhatsApp in
  *      particular has historically failed to render it — the exact channel that
  *      matters most here.
  *   2. It is not 1200×630. Platforms centre-crop to that ratio, and a centre crop

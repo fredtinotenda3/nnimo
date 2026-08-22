@@ -6,7 +6,7 @@ else in the project was touched.
 
 ## Files in this package
 
-1. `lib/editorial-images.ts` — all 12 slot paths switched from `.webp` to `.png`
+1. `lib/editorial-images.ts` — all 12 slot paths switched from `.png` to `.png`
 2. `public/images/README.md` — documentation updated with a wiring table
 3. `app/(site)/page.tsx` — homepage: added `hero-alternate` and `editorial-texture` breaks
 4. `app/(site)/about/page.tsx` — added `about-atmosphere` break and `craft-clay` / `craft-hands` / `craft-kiln` process strip

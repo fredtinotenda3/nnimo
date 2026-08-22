@@ -10,8 +10,7 @@ import {
 } from "@/lib/catalogue";
 import {
   ANTELOPE_VASE,
-  GIRAFFE_TUREEN_VIEWS,
-  HERO_PIECE,
+  COLLECTION_HIGHLIGHTS,
   MOTIF,
   TEAM_PHOTO,
 } from "@/lib/brand-assets";
@@ -59,24 +58,28 @@ export default async function HomePage() {
       />
 
       {/* ============================================================== 1. Hero
-          Split rather than full-bleed: the supplied photograph is 810x1080, and
-          stretching it across a 1440px viewport would soften the one thing that
-          has to look sharp. Type holds the left, the piece holds the right.
-
-          Art direction (Phase 9): checked object-cover's crop direction against
-          the container's aspect ratio at every breakpoint currently in use —
-          mobile's 4:5 frame (0.80) and the desktop min-h-[92svh] column (>0.75
-          on any realistic viewport) are both wider, relative to height, than the
-          source photograph's 0.75 ratio, so object-cover always trims the sides
-          and never the top or bottom; the full height of the piece stays in
-          frame at every size this ships at today. The focal point — the four
-          giraffe heads forming the lid handle — sits slightly above centre, so
-          object-position is set explicitly rather than left to the 50/50
-          default, as a guard for any future container ratio narrow enough to
-          crop vertically instead. */}
-      <section className="relative bg-charcoal">
-        <div className="grid lg:min-h-[92svh] lg:grid-cols-2">
-          <div className="order-2 flex flex-col justify-center px-5 pb-20 pt-14 sm:px-8 lg:order-1 lg:px-14 lg:py-28 xl:px-20">
+          Full-bleed cinematic atmosphere shot (public/images/hero/main.png)
+          with a dark gradient and the headline overlaid, rather than the
+          earlier split layout built around the tall HERO_PIECE product
+          photo. HERO_PIECE (the giraffe tureen) is no longer used on any
+          page — it's kept in lib/brand-assets.ts in case it's wanted again.
+          Falls back to the standard "coming soon" panel via EditorialImage
+          if public/images/hero/main.png is ever removed. */}
+      <section className="relative min-h-[92svh] w-full overflow-hidden bg-charcoal">
+        <EditorialImage
+          slot="hero-main"
+          caption="Nnino Ceramics"
+          priority
+          sizes="100vw"
+          className="absolute inset-0"
+          fallbackClassName="absolute inset-0"
+        />
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 bg-gradient-to-t from-charcoal/90 via-charcoal/30 to-charcoal/10"
+        />
+        <Container className="relative flex min-h-[92svh] flex-col justify-end pb-20 pt-14 sm:pb-24 lg:justify-center lg:pb-0">
+          <div className="max-w-xl">
             <p className="text-label text-ochre">
               {BRAND.city}, {BRAND.country}
             </p>
@@ -99,19 +102,7 @@ export default async function HomePage() {
               </Button>
             </div>
           </div>
-
-          <div className="relative order-1 aspect-[4/5] w-full lg:order-2 lg:aspect-auto lg:h-full">
-            <Image
-              src={HERO_PIECE.src}
-              alt={HERO_PIECE.alt}
-              width={HERO_PIECE.width}
-              height={HERO_PIECE.height}
-              priority
-              sizes="(min-width: 1024px) 50vw, 100vw"
-              className="h-full w-full object-cover object-[50%_42%]"
-            />
-          </div>
-        </div>
+        </Container>
       </section>
 
       {/* ================================================= 2. Brand statement */}
@@ -203,7 +194,7 @@ export default async function HomePage() {
           photograph lands at public/images/hero/alternate.png — see
           lib/editorial-images.ts. */}
       <Section contained={false} className="py-0">
-        <div className="relative aspect-21/9 w-full overflow-hidden">
+        <div className="relative aspect-[21/9] w-full overflow-hidden">
           <EditorialImage
             slot="hero-alternate"
             caption="Nnino Ceramics"
@@ -267,10 +258,10 @@ export default async function HomePage() {
           </div>
         </div>
 
-        {/* Four views of one piece — the same tureen from every side, which is how
-            a one-off is actually assessed. */}
+        {/* One piece from each of four collections — a glimpse of the range's
+            variety, not four angles of a single tureen. */}
         <ul className="mt-16 grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-          {GIRAFFE_TUREEN_VIEWS.map((view) => (
+          {COLLECTION_HIGHLIGHTS.map((view) => (
             <li key={view.src} className="relative aspect-[3/4] overflow-hidden">
               <Image
                 src={view.src}

@@ -68,7 +68,7 @@ const PHOTO = (
   height: number,
   alt: string,
   source: string,
-): BrandImage => ({ src: `/brand/${name}.webp`, width, height, alt, source });
+): BrandImage => ({ src: `/brand/${name}.png`, width, height, alt, source });
 
 export const HERO_PIECE = PHOTO(
   "hero-giraffe-tureen",
@@ -78,11 +78,31 @@ export const HERO_PIECE = PHOTO(
   "Supplied photograph",
 );
 
-export const GIRAFFE_TUREEN_VIEWS: BrandImage[] = [
-  PHOTO("giraffe-tureen-front", 810, 1080, "Front view of the hand-sculpted giraffe tureen, showing a painted flower on the body.", "Supplied photograph"),
-  PHOTO("giraffe-tureen-floral", 810, 1080, "The giraffe tureen photographed from the side, with a large hand-painted pink flower.", "Supplied photograph"),
-  PHOTO("giraffe-tureen-side", 810, 1080, "Side view of the giraffe tureen showing the modelled giraffe heads forming the lid handle.", "Supplied photograph"),
-  PHOTO("giraffe-tureen-detail", 810, 1080, "Detail of the giraffe tureen, showing the sculpted and hand-painted giraffe figures.", "Supplied photograph"),
+/**
+ * A different signature piece for the Custom commissions page hero — kept
+ * deliberately distinct from HERO_PIECE (used on the homepage's legacy
+ * strip and previously as the Custom hero too) so a visitor doesn't see the
+ * same giraffe tureen on every page.
+ */
+export const CUSTOM_HERO_PIECE = PHOTO(
+  "custom-hero-big-five",
+  810,
+  1080,
+  "A hand-sculpted ceramic masterpiece featuring the Big Five — elephant, lion, leopard, rhino and buffalo — modelled in relief and hand-painted in naturalistic detail.",
+  "Supplied photograph",
+);
+
+/**
+ * A glimpse of the range: one piece from each of four different animal
+ * collections, rather than four angles of a single tureen — the studio
+ * makes many ranges, and the homepage/Custom galleries should read that
+ * way at a glance.
+ */
+export const COLLECTION_HIGHLIGHTS: BrandImage[] = [
+  PHOTO("giraffe-tureen-front", 810, 1080, "A hand-sculpted lidded ceramic tureen from the Giraffe Collection, hand-painted with tan and ochre giraffe-print patches and a hand-painted flower.", "Supplied photograph"),
+  PHOTO("range-leopard", 810, 1080, "A hand-sculpted ceramic piece from the Leopard Collection, hand-painted with black leopard-rosette spots on an ochre and cream base.", "Supplied photograph"),
+  PHOTO("range-sable", 810, 1080, "A hand-sculpted ceramic piece from the Sable Collection, with dark chestnut-brown antelope figures and hand-painted botanical bands.", "Supplied photograph"),
+  PHOTO("range-elephant", 810, 1080, "A hand-sculpted ceramic piece from the Elephant Collection, with a charcoal-grey elephant figure against a cream and black glaze.", "Supplied photograph"),
 ];
 
 export const ANTELOPE_VASE = PHOTO(
@@ -108,4 +128,4 @@ export const TEAM_PHOTO = PHOTO(
 );
 
 /** Editorial imagery, in the order the homepage uses it. */
-export const EDITORIAL_PIECES: BrandImage[] = [HERO_PIECE, ANTELOPE_VASE, ...GIRAFFE_TUREEN_VIEWS];
+export const EDITORIAL_PIECES: BrandImage[] = [HERO_PIECE, ANTELOPE_VASE, ...COLLECTION_HIGHLIGHTS];
