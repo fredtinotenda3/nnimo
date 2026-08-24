@@ -53,6 +53,20 @@ const nextConfig: NextConfig = {
   // Never advertise the framework or its version.
   poweredByHeader: false,
 
+  experimental: {
+    serverActions: {
+      // Next.js defaults the Server Actions request body to 1 MB, which is
+      // far below what a real product photo needs. `lib/media/types.ts`
+      // (MAX_UPLOAD_BYTES) already enforces the real 12 MB ceiling once the
+      // body reaches that validation, so this only needs to be raised enough
+      // that a legitimate 12 MB upload's multipart body — which carries some
+      // encoding overhead on top of the raw file — is not rejected before it
+      // ever reaches that check. 15 MB gives that headroom without changing
+      // any upload validation, RBAC, or storage logic.
+      bodySizeLimit: "15mb",
+    },
+  },
+
   images: {
     // Product photography is the visual hero; serve modern formats and only the
     // widths the layout actually uses.
