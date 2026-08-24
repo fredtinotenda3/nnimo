@@ -5,7 +5,6 @@ import { db } from "@/lib/db";
 import { requireMutationPermission } from "@/lib/session";
 import { recordAudit } from "@/lib/audit";
 import {
-  IDLE_FORM_STATE,
   field,
   formError,
   formSuccess,
@@ -17,8 +16,6 @@ import { MediaUploadError, createMediaFromUpload, deleteMedia, getMediaUsage } f
 import { checkRateLimit } from "@/lib/rate-limit";
 import { clientIdentity } from "@/lib/security/client-identity";
 import { logger } from "@/lib/logger";
-
-export { IDLE_FORM_STATE };
 
 /**
  * Media mutations.
