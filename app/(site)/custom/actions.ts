@@ -11,6 +11,7 @@ import {
 import { rateLimit } from "@/lib/rate-limit";
 import { clientIdentity } from "@/lib/security/client-identity";
 import { logger } from "@/lib/logger";
+import { readAttribution, verifiedAttribution } from "@/lib/marketing/attribution";
 
 /**
  * Throttling bucket for a submission.
@@ -56,6 +57,11 @@ export async function submitCommission(
   // Drop the honeypot before it reaches Prisma.
   const data = { ...parsed.data, website: undefined };
 
+  // Verified against the database before it reaches Prisma — see
+  // lib/marketing/attribution.ts for why an unverified campaignId/landingPageId
+  // from a stale cookie must never be trusted straight into a foreign key.
+  const attribution = await verifiedAttribution(await readAttribution());
+
   try {
     await db.customOrderInquiry.create({
       data: {
@@ -70,6 +76,13 @@ export async function submitCommission(
         description: data.description,
         // status defaults to NEW. No quote, no price, no order — a commission
         // becomes commercial only once the studio has quoted it.
+        utmSource: attribution.utmSource,
+        utmMedium: attribution.utmMedium,
+        utmCampaign: attribution.utmCampaign,
+        utmTerm: attribution.utmTerm,
+        utmContent: attribution.utmContent,
+        campaignId: attribution.campaignId,
+        landingPageId: attribution.landingPageId,
       },
     });
   } catch (error) {
@@ -109,6 +122,8 @@ export async function submitContact(
     };
   }
 
+  const attribution = await verifiedAttribution(await readAttribution());
+
   try {
     await db.customOrderInquiry.create({
       data: {
@@ -117,6 +132,13 @@ export async function submitContact(
         phone: parsed.data.phone ?? null,
         requestType: CONTACT_REQUEST_TYPE,
         description: parsed.data.description,
+        utmSource: attribution.utmSource,
+        utmMedium: attribution.utmMedium,
+        utmCampaign: attribution.utmCampaign,
+        utmTerm: attribution.utmTerm,
+        utmContent: attribution.utmContent,
+        campaignId: attribution.campaignId,
+        landingPageId: attribution.landingPageId,
       },
     });
   } catch (error) {

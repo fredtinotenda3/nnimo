@@ -18,6 +18,7 @@ import { CHECKOUT_IDLE } from "@/lib/checkout-constants";
 import { logger } from "@/lib/logger";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { clientIdentity } from "@/lib/security/client-identity";
+import { readAttribution, verifiedAttribution } from "@/lib/marketing/attribution";
 
 export type CheckoutState = {
   status: "idle" | "error";
@@ -81,10 +82,12 @@ export async function placeOrderAction(
 
   let order: Awaited<ReturnType<typeof createOrderFromCart>>;
   try {
+    const attribution = await verifiedAttribution(await readAttribution());
     order = await createOrderFromCart({
       cartId: cart.cartId,
       input: parsed.data,
       expectedSubtotalCents: cart.subtotalCents,
+      attribution,
     });
   } catch (error) {
     if (error instanceof CheckoutValidationError) {

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPublicCollectionBySlug, getRelatedCollections } from "@/lib/catalogue";
 import { resolveMediaUrl } from "@/lib/media";
-import { breadcrumbJsonLd } from "@/lib/seo";
+import { breadcrumbJsonLd, absoluteUrl } from "@/lib/seo";
 import { serialiseJsonLd } from "@/lib/security/json-ld";
 import { Container } from "@/components/ui/container";
 import { Section } from "@/components/ui/section";
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ProductCard, type ProductCardProps } from "@/components/catalogue/product-card";
 import { EditorialImage } from "@/components/site/editorial-image";
+import { ShareLinks } from "@/components/site/share-links";
 
 export const dynamic = "force-dynamic";
 
@@ -36,12 +37,19 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     description,
     alternates: { canonical: `/collections/${collection.slug}` },
     openGraph: {
+      type: "website",
       title: `${collection.name} · Nnino Ceramics`,
       description,
       url: `/collections/${collection.slug}`,
       ...(collection.heroImage
         ? { images: [{ url: resolveMediaUrl(collection.heroImage) }] }
         : {}),
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${collection.name} · Nnino Ceramics`,
+      description,
+      ...(collection.heroImage ? { images: [resolveMediaUrl(collection.heroImage)] } : {}),
     },
   };
 }
@@ -130,6 +138,12 @@ export default async function CollectionDetailPage({ params }: Params) {
             ) : null}
           </div>
         ) : null}
+
+        <ShareLinks
+          url={absoluteUrl(`/collections/${collection.slug}`)}
+          title={collection.name}
+          className="mt-8"
+        />
 
         <div className="mt-14">
           <div className="flex items-baseline justify-between gap-4 border-b border-border pb-4">

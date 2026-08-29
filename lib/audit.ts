@@ -65,6 +65,20 @@ const AUDITED_ACTIONS = [
   // PAID, so it is the highest-value entry in the log: it names the operator who
   // asserted that money arrived.
   "payment.manually_settled",
+
+  // --- Marketing Engine ------------------------------------------------------
+  // campaign.products_updated mirrors collection.products_updated exactly —
+  // same reasoning, same shape, for the CampaignProduct join table instead of
+  // Product.collectionId.
+  "campaign.created",
+  "campaign.updated",
+  "campaign.published",
+  "campaign.unpublished",
+  "campaign.products_updated",
+  "landing_page.created",
+  "landing_page.updated",
+  "landing_page.published",
+  "landing_page.unpublished",
 ] as const;
 
 export type AuditedAction = (typeof AUDITED_ACTIONS)[number];

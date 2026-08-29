@@ -9,8 +9,10 @@ import {
   contentDefinitionOrFallback,
   type ContentDefinition,
 } from "@/lib/admin/content-registry";
+import { getBannerConfig } from "@/lib/marketing/banner";
 import { PageHeader, AdminSection } from "@/components/admin/page-header";
 import { ContentBlockForm } from "@/components/admin/content-block-form";
+import { BannerForm } from "@/components/admin/banner-form";
 import { MediaSelect, mediaLabel } from "@/components/admin/media-fields";
 
 export const metadata: Metadata = { title: "Content" };
@@ -39,7 +41,7 @@ type MediaOption = { id: string; altText: string | null; originalFilename: strin
 export default async function AdminContentPage() {
   await requirePermission("content:write");
 
-  const [blocks, media] = await Promise.all([
+  const [blocks, media, banner] = await Promise.all([
     db.contentBlock.findMany({
       orderBy: { key: "asc" },
       select: { key: true, type: true, value: true, mediaId: true, updatedAt: true },
@@ -49,6 +51,7 @@ export default async function AdminContentPage() {
       take: 200,
       select: { id: true, altText: true, originalFilename: true, createdAt: true },
     }),
+    getBannerConfig(),
   ]);
 
   const rows = blocks as BlockRow[];
@@ -78,6 +81,29 @@ export default async function AdminContentPage() {
         title="Content"
         description={`${written} of ${allDefinitions.length} passages written. Blank blocks are left blank on the site rather than filled with placeholder copy.`}
       />
+
+      <AdminSection
+        title="Promotional banner"
+        description="One banner, shown across the top of every public page when enabled."
+      >
+        <BannerForm
+          value={banner}
+          heroField={
+            <div className="flex flex-col gap-2">
+              <label htmlFor="field-mediaId" className="text-label text-foreground">
+                Image
+              </label>
+              <MediaSelect
+                name="mediaId"
+                value={banner.mediaId}
+                current={null}
+                emptyLabel="No image chosen"
+                options={mediaOptions}
+              />
+            </div>
+          }
+        />
+      </AdminSection>
 
       {CONTENT_GROUPS.map((group) => {
         const definitions = allDefinitions.filter((definition) => definition.group === group);

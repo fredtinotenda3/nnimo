@@ -77,6 +77,13 @@ export default async function AdminOrderDetailPage({
       guestName: true,
       guestEmail: true,
       guestPhone: true,
+      utmSource: true,
+      utmMedium: true,
+      utmCampaign: true,
+      utmTerm: true,
+      utmContent: true,
+      campaign: { select: { id: true, name: true } },
+      landingPage: { select: { id: true, title: true } },
       customer: { select: { id: true, name: true, email: true, phone: true } },
       items: {
         select: {
@@ -253,6 +260,50 @@ export default async function AdminOrderDetailPage({
               <p className="text-body-sm mt-2 text-muted-foreground">{order.customerNotes}</p>
             </>
           ) : null}
+
+          <h3 className="text-label mt-8 text-muted-foreground">Attribution</h3>
+          {order.campaign || order.landingPage || order.utmSource || order.utmMedium || order.utmCampaign ? (
+            <dl className="mt-2 flex flex-col gap-1.5">
+              {order.campaign ? (
+                <div className="flex justify-between gap-6">
+                  <dt className="text-metadata text-muted-foreground">Campaign</dt>
+                  <dd className="text-body-sm">
+                    <Link href={`/admin/campaigns/${order.campaign.id}`} className="hover:text-primary">
+                      {order.campaign.name}
+                    </Link>
+                  </dd>
+                </div>
+              ) : null}
+              {order.landingPage ? (
+                <div className="flex justify-between gap-6">
+                  <dt className="text-metadata text-muted-foreground">Landing page</dt>
+                  <dd className="text-body-sm">
+                    <Link href={`/admin/landing-pages/${order.landingPage.id}`} className="hover:text-primary">
+                      {order.landingPage.title}
+                    </Link>
+                  </dd>
+                </div>
+              ) : null}
+              {[
+                ["Source", order.utmSource],
+                ["Medium", order.utmMedium],
+                ["Campaign tag", order.utmCampaign],
+                ["Term", order.utmTerm],
+                ["Content", order.utmContent],
+              ]
+                .filter(([, value]) => value)
+                .map(([label, value]) => (
+                  <div key={label} className="flex justify-between gap-6">
+                    <dt className="text-metadata text-muted-foreground">{label}</dt>
+                    <dd className="text-body-sm break-all">{value}</dd>
+                  </div>
+                ))}
+            </dl>
+          ) : (
+            <p className="text-body-sm mt-2 text-muted-foreground">
+              No attribution recorded — this order was placed with no campaign link or utm parameters.
+            </p>
+          )}
         </section>
 
         <section>

@@ -167,6 +167,87 @@ export const collectionMembershipSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
+// Marketing: Campaigns & Landing pages
+// ---------------------------------------------------------------------------
+
+export const CAMPAIGN_STATUS_VALUES = ["DRAFT", "SCHEDULED", "ACTIVE", "ENDED", "ARCHIVED"] as const;
+
+export const campaignSchema = z
+  .object({
+    name: requiredText(2, 160, "Name"),
+    slug: slugField,
+    description: optionalText(2000),
+    heroImageId: optionalId,
+    collectionId: optionalId,
+    cta: optionalText(2000),
+    ctaLabel: optionalText(60),
+    startDate: z
+      .string()
+      .trim()
+      .max(10)
+      .transform((value) => (value ? new Date(`${value}T00:00:00.000Z`) : null))
+      .nullable()
+      .optional()
+      .refine((value) => value === null || value === undefined || !Number.isNaN(value.getTime()), {
+        message: "Enter a valid start date",
+      }),
+    endDate: z
+      .string()
+      .trim()
+      .max(10)
+      .transform((value) => (value ? new Date(`${value}T00:00:00.000Z`) : null))
+      .nullable()
+      .optional()
+      .refine((value) => value === null || value === undefined || !Number.isNaN(value.getTime()), {
+        message: "Enter a valid end date",
+      }),
+    status: z.enum(CAMPAIGN_STATUS_VALUES),
+  })
+  .refine((value) => !value.startDate || !value.endDate || value.startDate <= value.endDate, {
+    message: "The end date must be on or after the start date",
+    path: ["endDate"],
+  });
+
+export const campaignProductSchema = z.object({
+  campaignId: idParam,
+  productId: idParam,
+  action: z.enum(["add", "remove"]),
+});
+
+export const LANDING_PAGE_STATUS_VALUES = ["DRAFT", "PUBLISHED", "ARCHIVED"] as const;
+
+export const landingPageSchema = z.object({
+  title: requiredText(2, 160, "Title"),
+  slug: slugField,
+  campaignId: optionalId,
+  heroImageId: optionalId,
+  message: optionalText(320),
+  storyContent: optionalText(8000),
+  cta: optionalText(2000),
+  ctaLabel: optionalText(60),
+  status: z.enum(LANDING_PAGE_STATUS_VALUES),
+  defaultUtmSource: optionalText(150),
+  defaultUtmMedium: optionalText(150),
+  defaultUtmCampaign: optionalText(150),
+  defaultUtmTerm: optionalText(150),
+  defaultUtmContent: optionalText(150),
+});
+
+// ---------------------------------------------------------------------------
+// Marketing: Promotional banner (stored as a ContentBlock, key "marketing.banner")
+// ---------------------------------------------------------------------------
+
+export const bannerSchema = z.object({
+  enabled: checkbox,
+  text: requiredText(2, 200, "Banner text"),
+  linkUrl: optionalText(2000),
+  linkLabel: optionalText(40),
+  mediaId: optionalId,
+});
+
+export type BannerValue = z.infer<typeof bannerSchema>;
+
+// ---------------------------------------------------------------------------
 // Team (Artist)
 // ---------------------------------------------------------------------------
 
@@ -323,4 +404,18 @@ export const CONTENT_TYPE_LABEL: Record<(typeof CONTENT_TYPE_VALUES)[number], st
   RICH_TEXT: "Long text",
   IMAGE: "Image",
   JSON: "Structured",
+};
+
+export const CAMPAIGN_STATUS_LABEL: Record<(typeof CAMPAIGN_STATUS_VALUES)[number], string> = {
+  DRAFT: "Draft",
+  SCHEDULED: "Scheduled",
+  ACTIVE: "Active",
+  ENDED: "Ended",
+  ARCHIVED: "Archived",
+};
+
+export const LANDING_PAGE_STATUS_LABEL: Record<(typeof LANDING_PAGE_STATUS_VALUES)[number], string> = {
+  DRAFT: "Draft",
+  PUBLISHED: "Published",
+  ARCHIVED: "Archived",
 };

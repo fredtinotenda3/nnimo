@@ -460,9 +460,16 @@ model Order {
   internalNotes String?
 
   // Marketing attribution
+  //
+  // First-touch: written once, at order creation, from whatever the checkout
+  // session's attribution cookie holds (see lib/marketing/attribution.ts). Never
+  // rewritten afterwards — an order's attribution is a historical fact about how
+  // that customer arrived, not a running total that later visits should update.
   utmSource    String?
   utmMedium    String?
   utmCampaign  String?
+  utmTerm      String?
+  utmContent   String?
   campaignId   String?
   campaign     Campaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
   landingPageId String?
@@ -596,6 +603,21 @@ model CustomOrderInquiry {
   quote        Decimal?          @db.Decimal(10, 2)
   internalNotes String?
   status       CustomOrderStatus @default(NEW)
+
+  // Marketing attribution — same first-touch model as Order. Added in the
+  // Marketing Engine phase; every CustomOrderInquiry created before this
+  // migration simply has all of these as null, which reads correctly as
+  // "no attribution recorded" rather than requiring a backfill.
+  utmSource    String?
+  utmMedium    String?
+  utmCampaign  String?
+  utmTerm      String?
+  utmContent   String?
+  campaignId   String?
+  campaign     Campaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  landingPageId String?
+  landingPage  LandingPage?  @relation(fields: [landingPageId], references: [id], onDelete: SetNull)
+
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
 
@@ -676,16 +698,27 @@ model Campaign {
   heroImage    Media?         @relation("CampaignHero", fields: [heroImageId], references: [id], onDelete: SetNull)
   collectionId String?
   collection   Collection?    @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+  /// The link target — a shop, product, collection or /custom URL. Free text
+  /// (like Product.description elsewhere) rather than a typed union of target
+  /// kinds, because a campaign CTA is just as often an external link (a
+  /// WhatsApp share, an Instagram bio link) as an internal route.
   cta          String?
+  /// Button text shown for `cta`, e.g. "Shop the range". Separate from `cta`
+  /// itself so the link and its label can be edited independently — added
+  /// alongside `cta` rather than folding both into one field, since a URL and
+  /// its button text are different kinds of validation (one is a link, one is
+  /// short display copy).
+  ctaLabel     String?
   startDate    DateTime?
   endDate      DateTime?
   status       CampaignStatus @default(DRAFT)
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
-  products     CampaignProduct[]
-  landingPages LandingPage[]
-  orders       Order[]
+  products         CampaignProduct[]
+  landingPages     LandingPage[]
+  orders           Order[]
+  customOrderInquiries CustomOrderInquiry[]
 
   @@index([status])
 }
@@ -717,16 +750,46 @@ model LandingPage {
   message       String?
   storyContent  String?
   cta           String?
+  ctaLabel      String?
   status        LandingPageStatus @default(DRAFT)
   defaultUtmSource   String?
   defaultUtmMedium   String?
   defaultUtmCampaign String?
+  defaultUtmTerm     String?
+  defaultUtmContent  String?
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
 
   orders Order[]
+  customOrderInquiries CustomOrderInquiry[]
 
   @@index([status])
+}
+
+// ----------------------------------------------------------------------------
+// Marketing: Newsletter
+// ----------------------------------------------------------------------------
+
+/// A double opt-in is not implemented in this phase — consent is the explicit
+/// checkbox ticked at signup, recorded once, the same trust model the
+/// checkout's own `Customer.marketingConsent` already uses. `unsubscribedAt`
+/// is a soft flag rather than a delete: a suppressed address must still be
+/// remembered as "asked to stop", or a future re-import could re-subscribe it.
+model NewsletterSubscriber {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  consent        Boolean   @default(true)
+  /// Where the signup happened, e.g. "footer", "landing:zebra-launch" — free
+  /// text, not a foreign key, since a signup is not required to come from a
+  /// campaign or landing page at all.
+  source         String?
+  utmSource      String?
+  utmMedium      String?
+  utmCampaign    String?
+  createdAt      DateTime  @default(now())
+  unsubscribedAt DateTime?
+
+  @@index([unsubscribedAt])
 }
 
 // ----------------------------------------------------------------------------

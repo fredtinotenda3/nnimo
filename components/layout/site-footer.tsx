@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Container } from "@/components/ui/container";
 import { BRAND, whatsappLink } from "@/lib/brand";
 import { FOOTER_BUYING_NAV, PRIMARY_NAV } from "@/lib/navigation";
+import { NewsletterForm } from "@/components/site/newsletter-form";
 
 /**
  * Server component: nothing here is interactive, so it ships no JavaScript.
@@ -15,7 +16,7 @@ function SiteFooter() {
   return (
     <footer className="border-t border-border bg-surface-sunken">
       <Container>
-        <div className="grid gap-12 py-16 sm:grid-cols-2 lg:grid-cols-4 lg:py-20">
+        <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-5 py-16 lg:py-20">
           <div className="lg:col-span-1">
             <p className="text-heading-2">Nnino</p>
             <p className="text-quote mt-3 text-muted-foreground">{BRAND.tagline}</p>
@@ -108,6 +109,13 @@ function SiteFooter() {
                 </a>
               </li>
             </ul>
+          </div>
+
+          <div>
+            <h2 className="text-label text-muted-foreground">Stay in touch</h2>
+            <div className="mt-5">
+              <NewsletterForm />
+            </div>
           </div>
         </div>
 

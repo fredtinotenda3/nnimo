@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/session";
@@ -48,6 +49,13 @@ export default async function InquiryDetailPage({
       status: true,
       createdAt: true,
       updatedAt: true,
+      utmSource: true,
+      utmMedium: true,
+      utmCampaign: true,
+      utmTerm: true,
+      utmContent: true,
+      campaign: { select: { id: true, name: true } },
+      landingPage: { select: { id: true, title: true } },
       referenceImages: {
         select: {
           id: true,
@@ -172,6 +180,51 @@ export default async function InquiryDetailPage({
           </ul>
         </AdminSection>
       ) : null}
+
+      <AdminSection title="Attribution" description="How this enquiry found the site, if known.">
+        {inquiry.campaign || inquiry.landingPage || inquiry.utmSource || inquiry.utmMedium || inquiry.utmCampaign ? (
+          <dl className="divide-y divide-border border-y border-border">
+            {inquiry.campaign ? (
+              <div className="flex justify-between gap-4 py-3">
+                <dt className="text-metadata text-muted-foreground">Campaign</dt>
+                <dd className="text-body-sm">
+                  <Link href={`/admin/campaigns/${inquiry.campaign.id}`} className="hover:text-primary">
+                    {inquiry.campaign.name}
+                  </Link>
+                </dd>
+              </div>
+            ) : null}
+            {inquiry.landingPage ? (
+              <div className="flex justify-between gap-4 py-3">
+                <dt className="text-metadata text-muted-foreground">Landing page</dt>
+                <dd className="text-body-sm">
+                  <Link href={`/admin/landing-pages/${inquiry.landingPage.id}`} className="hover:text-primary">
+                    {inquiry.landingPage.title}
+                  </Link>
+                </dd>
+              </div>
+            ) : null}
+            {[
+              ["Source", inquiry.utmSource],
+              ["Medium", inquiry.utmMedium],
+              ["Campaign tag", inquiry.utmCampaign],
+              ["Term", inquiry.utmTerm],
+              ["Content", inquiry.utmContent],
+            ]
+              .filter(([, value]) => value)
+              .map(([label, value]) => (
+                <div key={label} className="flex justify-between gap-4 py-3">
+                  <dt className="text-metadata text-muted-foreground">{label}</dt>
+                  <dd className="text-body-sm break-all">{value}</dd>
+                </div>
+              ))}
+          </dl>
+        ) : (
+          <p className="text-body-sm text-muted-foreground">
+            No attribution recorded — this enquiry arrived with no campaign link or utm parameters.
+          </p>
+        )}
+      </AdminSection>
 
       <AdminSection title="History">
         {history.length === 0 ? (

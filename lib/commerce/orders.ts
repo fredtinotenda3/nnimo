@@ -16,6 +16,7 @@ import {
 import { evaluatePurchasability, PURCHASABILITY_MESSAGE } from "@/lib/commerce/purchasability";
 import { canTransitionFulfilment } from "@/lib/commerce/fulfilment";
 import type { OrderFulfilmentStatus } from "@/lib/generated/prisma/enums";
+import type { AttributionData } from "@/lib/marketing/utm";
 
 export const COMMERCE_CURRENCY = "USD";
 
@@ -125,8 +126,16 @@ export async function createOrderFromCart(params: {
   cartId: string;
   input: CheckoutInput;
   expectedSubtotalCents: Cents;
+  /**
+   * Marketing attribution for this order, already verified against the
+   * database by the caller (see lib/marketing/attribution.ts —
+   * `verifiedAttribution`). Optional and defaults to all-null so this
+   * function's existing callers and tests are unaffected; app/(site)/checkout
+   * actions.ts is the one real caller and always passes it.
+   */
+  attribution?: AttributionData;
 }): Promise<CreatedOrder> {
-  const { cartId, input, expectedSubtotalCents } = params;
+  const { cartId, input, expectedSubtotalCents, attribution } = params;
 
   return db.$transaction(async (tx) => {
     const cart = await tx.cart.findUnique({
@@ -279,6 +288,16 @@ export async function createOrderFromCart(params: {
         deliveryQuoteStatus: isDelivery ? "PENDING_QUOTE" : "NOT_REQUIRED",
         deliveryAddress: deliveryAddress ?? undefined,
         customerNotes: input.notes?.trim() || null,
+        // First-touch attribution, already FK-verified by the caller — see the
+        // `attribution` param doc above. All null when absent, the same as
+        // every order created before this field existed.
+        utmSource: attribution?.utmSource ?? null,
+        utmMedium: attribution?.utmMedium ?? null,
+        utmCampaign: attribution?.utmCampaign ?? null,
+        utmTerm: attribution?.utmTerm ?? null,
+        utmContent: attribution?.utmContent ?? null,
+        campaignId: attribution?.campaignId ?? null,
+        landingPageId: attribution?.landingPageId ?? null,
         items: {
           create: lines.map((line) => ({
             productId: line.productId,

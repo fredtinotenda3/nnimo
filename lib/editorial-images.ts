@@ -34,7 +34,8 @@ export type EditorialSlotKey =
   | "collection-atmosphere"
   | "about-atmosphere"
   | "family-atmosphere"
-  | "contact-atmosphere";
+  | "contact-atmosphere"
+  | "campaign-atmosphere";
 
 type EditorialSlotDefinition = {
   /** Path relative to /public/images/, and the folder it belongs in per the README table. */
@@ -57,6 +58,7 @@ const EDITORIAL_SLOTS: Record<EditorialSlotKey, EditorialSlotDefinition> = {
   "about-atmosphere": { path: "about/atmosphere.png", alt: "" },
   "family-atmosphere": { path: "family/atmosphere.png", alt: "" },
   "contact-atmosphere": { path: "contact/atmosphere.png", alt: "" },
+  "campaign-atmosphere": { path: "campaign-atmosphere/default.png", alt: "" },
 };
 
 export type ResolvedEditorialImage =

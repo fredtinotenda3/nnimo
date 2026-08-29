@@ -75,6 +75,13 @@ export type OrderDetailView = {
   guestName: string | null;
   guestEmail: string | null;
   guestPhone: string | null;
+  utmSource: string | null;
+  utmMedium: string | null;
+  utmCampaign: string | null;
+  utmTerm: string | null;
+  utmContent: string | null;
+  campaign: { id: string; name: string } | null;
+  landingPage: { id: string; title: string } | null;
   customer: { id: string; name: string; email: string; phone: string | null } | null;
   items: OrderItemView[];
   payments: PaymentView[];

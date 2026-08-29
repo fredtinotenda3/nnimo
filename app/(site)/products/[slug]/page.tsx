@@ -11,8 +11,9 @@ import {
 import { formatDimensions, formatPriceOrRequest, formatWeight } from "@/lib/money";
 import { resolveMediaUrl } from "@/lib/media";
 import { whatsappLink } from "@/lib/brand";
-import { breadcrumbJsonLd, productJsonLd } from "@/lib/seo";
+import { breadcrumbJsonLd, productJsonLd, absoluteUrl } from "@/lib/seo";
 import { serialiseJsonLd } from "@/lib/security/json-ld";
+import { ShareLinks } from "@/components/site/share-links";
 import {
   PURCHASABILITY_MESSAGE,
   evaluatePurchasability,
@@ -60,6 +61,12 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
       description,
       url: `/products/${product.slug}`,
       ...(primary ? { images: [{ url: resolveMediaUrl(primary) }] } : {}),
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${product.name} · Nnino Ceramics`,
+      description,
+      ...(primary ? { images: [resolveMediaUrl(primary)] } : {}),
     },
   };
 }
@@ -278,6 +285,8 @@ export default async function ProductDetailPage({ params }: Params) {
                 </p>
               </div>
             ) : null}
+
+            <ShareLinks url={absoluteUrl(`/products/${product.slug}`)} title={product.name} className="mt-10" />
           </div>
         </div>
       </Section>

@@ -34,6 +34,7 @@ export const ANALYTICS_SECTIONS: AnalyticsSection[] = [
   { label: "Customers", href: "/admin/analytics/customers",  permission: "customer:read"     },
   { label: "Inventory", href: "/admin/analytics/inventory",  permission: "inventory:read"    },
   { label: "Enquiries", href: "/admin/analytics/enquiries",  permission: "custom_order:read" },
+  { label: "Campaigns", href: "/admin/analytics/campaigns",  permission: "campaign:read"     },
 ];
 
 /**
