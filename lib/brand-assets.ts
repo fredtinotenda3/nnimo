@@ -1,29 +1,29 @@
 /**
  * ===========================================================================
- * REAL NNINO ASSETS
+ * BRAND IDENTITY ASSETS
  * ---------------------------------------------------------------------------
- * Every file referenced here is a photograph or brand asset supplied by the
- * business. There are no stock images, no placeholders and no generated
- * imagery anywhere in this application.
+ * Everything referenced here is either a genuine photograph the business
+ * supplied (the team photo) or brand/identity artwork (wordmark, tagline
+ * lockup, motif texture) — never a product photograph standing in for real
+ * catalogue imagery.
  *
- * `alt` text describes only what is visibly in the frame. It never asserts
- * which catalogue SKU a piece is, because the supplied photographs are
- * unlabelled — see the note on ATTRIBUTION below.
+ * A previous version of this file also exported several "product" images
+ * (a giraffe tureen, an antelope vase, a leopard/sable/elephant range, a
+ * "Big Five" piece, a "hero" tureen). Those were AI-generated, not real
+ * photographs of Nnino ceramics, and have been removed along with the
+ * corresponding files in public/brand/. Product, collection and team
+ * photography now comes from two places only:
  *
- * WHY public/ AND NOT THE MEDIA TABLE
- * These are brand and editorial assets: the wordmark, the studio photograph,
- * the motif. They are referenced by layout code at build time, are part of the
- * repository, and are not managed by the business day to day. Product and
- * collection photography is different — that goes through the `Media` table and
- * the media driver, so it can be uploaded, reordered and given alt text by the
- * team without a deploy.
+ *  1. The `Media` table (uploaded via Admin → Media, attached to a specific
+ *     product/collection/team member) — the normal, day-to-day path. Pages
+ *     that used to reference the removed static images now pull a real,
+ *     currently-published product photo instead (see app/(site)/page.tsx,
+ *     app/(site)/about/page.tsx, app/(site)/custom/page.tsx) via MediaImage,
+ *     which shows an honest "coming soon" panel if nothing is uploaded yet.
+ *  2. Real supplied photography dropped into public/brand/ or public/images/
+ *     as a named brand asset, exactly like this file's remaining exports.
  *
- * ATTRIBUTION
- * The giraffe tureen photographs plainly show a lidded giraffe tureen, and the
- * catalogue lists a "3D Small Tureen Giraffe Collection Vase". Tying the two
- * together would still be an inference, so these are used as collection-level
- * and editorial imagery only. If the business confirms the identification, one
- * admin action attaches them to that product record.
+ * Nothing on the site should ever fall back to a generated or stock image.
  * ===========================================================================
  */
 
@@ -70,62 +70,18 @@ const PHOTO = (
   source: string,
 ): BrandImage => ({ src: `/brand/${name}.png`, width, height, alt, source });
 
-export const HERO_PIECE = PHOTO(
-  "hero-giraffe-tureen",
-  810,
-  1080,
-  "A hand-sculpted lidded ceramic tureen. Giraffe figures are modelled around the body and lid, and the surface is hand-painted with botanical detail.",
-  "Supplied photograph",
-);
-
 /**
- * A different signature piece for the Custom commissions page hero — kept
- * deliberately distinct from HERO_PIECE (used on the homepage's legacy
- * strip and previously as the Custom hero too) so a visitor doesn't see the
- * same giraffe tureen on every page.
- */
-export const CUSTOM_HERO_PIECE = PHOTO(
-  "custom-hero-big-five",
-  810,
-  1080,
-  "A hand-sculpted ceramic masterpiece featuring the Big Five — elephant, lion, leopard, rhino and buffalo — modelled in relief and hand-painted in naturalistic detail.",
-  "Supplied photograph",
-);
-
-/**
- * A glimpse of the range: one piece from each of four different animal
- * collections, rather than four angles of a single tureen — the studio
- * makes many ranges, and the homepage/Custom galleries should read that
- * way at a glance.
- */
-export const COLLECTION_HIGHLIGHTS: BrandImage[] = [
-  PHOTO("giraffe-tureen-front", 810, 1080, "A hand-sculpted lidded ceramic tureen from the Giraffe Collection, hand-painted with tan and ochre giraffe-print patches and a hand-painted flower.", "Supplied photograph"),
-  PHOTO("range-leopard", 810, 1080, "A hand-sculpted ceramic piece from the Leopard Collection, hand-painted with black leopard-rosette spots on an ochre and cream base.", "Supplied photograph"),
-  PHOTO("range-sable", 810, 1080, "A hand-sculpted ceramic piece from the Sable Collection, with dark chestnut-brown antelope figures and hand-painted botanical bands.", "Supplied photograph"),
-  PHOTO("range-elephant", 810, 1080, "A hand-sculpted ceramic piece from the Elephant Collection, with a charcoal-grey elephant figure against a cream and black glaze.", "Supplied photograph"),
-];
-
-export const ANTELOPE_VASE = PHOTO(
-  "antelope-vase",
-  1200,
-  1600,
-  "A tall hand-thrown ceramic vase with antelope figures sculpted in relief climbing its sides, hand-painted with foliage.",
-  "Supplied photograph",
-);
-
-/**
- * The Nnino team photographed with a display of finished work.
+ * The Nnino team photographed with a display of finished work. This is a
+ * genuine photograph, not generated — kept distinct from the deleted
+ * "product" images described above.
  *
  * Deliberately not captioned with individual names: the photograph is
  * unlabelled and identifying people in it would be guesswork.
  */
 export const TEAM_PHOTO = PHOTO(
   "nnino-team",
-  1080,
-  720,
+  1536,
+  1024,
   "Members of the Nnino Ceramics team standing behind a table laid with finished hand-painted plates, cups, platters and sculptural pieces.",
   "Supplied photograph",
 );
-
-/** Editorial imagery, in the order the homepage uses it. */
-export const EDITORIAL_PIECES: BrandImage[] = [HERO_PIECE, ANTELOPE_VASE, ...COLLECTION_HIGHLIGHTS];

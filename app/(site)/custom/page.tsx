@@ -1,13 +1,17 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import { db } from "@/lib/db";
-import { PUBLIC_PRODUCT_WHERE, getContentBlocks } from "@/lib/catalogue";
-import { COLLECTION_HIGHLIGHTS, CUSTOM_HERO_PIECE } from "@/lib/brand-assets";
+import {
+  PUBLIC_PRODUCT_WHERE,
+  getContentBlocks,
+  getFeaturedProducts,
+  type ProductCardData,
+} from "@/lib/catalogue";
 import { BRAND, whatsappLink } from "@/lib/brand";
 import { Section } from "@/components/ui/section";
 import { Button } from "@/components/ui/button";
 import { CommissionForm } from "@/components/site/commission-form";
 import { EditorialImage } from "@/components/site/editorial-image";
+import { MediaImage } from "@/components/catalogue/media-image";
 
 export const metadata: Metadata = {
   title: "Custom Commissions",
@@ -44,7 +48,10 @@ export default async function CustomPage({
   searchParams: Promise<{ piece?: string }>;
 }) {
   const { piece: pieceSlug } = await searchParams;
-  const copy = await getContentBlocks(["commissions.intro"]);
+  const [copy, showcasePieces] = await Promise.all([
+    getContentBlocks(["commissions.intro"]),
+    getFeaturedProducts(5),
+  ]);
 
   // If the visitor arrived from a product page, resolve the slug to a real
   // published piece. An unknown or unpublished slug is simply ignored rather
@@ -74,14 +81,14 @@ export default async function CustomPage({
             </p>
           </div>
           <div className="relative order-1 aspect-[4/5] w-full lg:order-2 lg:aspect-auto">
-            <Image
-              src={CUSTOM_HERO_PIECE.src}
-              alt={CUSTOM_HERO_PIECE.alt}
-              fill
-              priority
+            <MediaImage
+              media={showcasePieces[0]?.images[0]?.media ?? null}
+              fallbackTitle={showcasePieces[0]?.name ?? "Nnino Ceramics"}
+              fallbackSubtitle="Made to order"
               sizes="(min-width: 1024px) 50vw, 100vw"
+              priority
               quality={100}
-              className="object-cover"
+              fit="framed"
             />
           </div>
         </div>
@@ -115,27 +122,30 @@ export default async function CustomPage({
         </div>
       </Section>
 
-      <Section tone="sunken">
-        <ul className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-          {COLLECTION_HIGHLIGHTS.map((view) => (
-            <li key={view.src} className="relative aspect-square overflow-hidden">
-              <Image
-                src={view.src}
-                alt={view.alt}
-                fill
-                sizes="(min-width: 1024px) 24vw, 45vw"
-                quality={90}
-                className="object-cover"
-              />
-            </li>
-          ))}
-        </ul>
-        <p className="text-body-sm mt-6 max-w-2xl text-muted-foreground">
-          A glimpse of a few of the studio&apos;s collections. Every commission is
-          sculptured individually, so no two pieces — yours included — are ever
-          the same.
-        </p>
-      </Section>
+      {showcasePieces.length > 0 ? (
+        <Section tone="sunken">
+          <ul className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+            {showcasePieces.slice(0, 4).map((piece: ProductCardData) => (
+              <li
+                key={piece.id}
+                className="relative aspect-square overflow-hidden bg-surface-sunken"
+              >
+                <MediaImage
+                  media={piece.images[0]?.media ?? null}
+                  fallbackTitle={piece.name}
+                  sizes="(min-width: 1024px) 24vw, 45vw"
+                  quality={90}
+                />
+              </li>
+            ))}
+          </ul>
+          <p className="text-body-sm mt-6 max-w-2xl text-muted-foreground">
+            A glimpse of a few of the studio&apos;s collections. Every commission is
+            sculptured individually, so no two pieces — yours included — are ever
+            the same.
+          </p>
+        </Section>
+      ) : null}
 
       <Section>
         <div className="grid gap-12 lg:grid-cols-12 lg:gap-16">

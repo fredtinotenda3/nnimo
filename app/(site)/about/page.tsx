@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { BRAND } from "@/lib/brand";
-import { getContentBlocks, getPublicTeam } from "@/lib/catalogue";
-import { ANTELOPE_VASE, TEAM_PHOTO } from "@/lib/brand-assets";
+import { getContentBlocks, getFeaturedProducts, getPublicTeam } from "@/lib/catalogue";
+import { TEAM_PHOTO } from "@/lib/brand-assets";
 import { Container } from "@/components/ui/container";
 import { Section } from "@/components/ui/section";
 import { Button } from "@/components/ui/button";
 import { EditorialImage } from "@/components/site/editorial-image";
+import { MediaImage } from "@/components/catalogue/media-image";
 
 export const metadata: Metadata = {
   title: "About",
@@ -30,7 +31,7 @@ export const dynamic = "force-dynamic";
  * promote.
  */
 export default async function AboutPage() {
-  const [copy, team] = await Promise.all([
+  const [copy, team, craftPieces] = await Promise.all([
     getContentBlocks([
       "legacy.origin",
       "about.products",
@@ -40,6 +41,7 @@ export default async function AboutPage() {
       "family.intro",
     ]),
     getPublicTeam(),
+    getFeaturedProducts(1),
   ]);
 
   const origin = copy.get("legacy.origin");
@@ -103,14 +105,13 @@ export default async function AboutPage() {
       <Section tone="sunken">
         <div className="grid items-center gap-12 lg:grid-cols-12 lg:gap-16">
           <div className="lg:col-span-6">
-            <div className="relative aspect-[3/4] w-full overflow-hidden">
-              <Image
-                src={ANTELOPE_VASE.src}
-                alt={ANTELOPE_VASE.alt}
-                fill
+            <div className="relative aspect-[3/4] w-full overflow-hidden bg-surface-sunken">
+              <MediaImage
+                media={craftPieces[0]?.images[0]?.media ?? null}
+                fallbackTitle={craftPieces[0]?.name ?? "Nnino Ceramics"}
+                fallbackSubtitle="Handmade in Bulawayo"
                 sizes="(min-width: 1024px) 45vw, 90vw"
                 quality={90}
-                className="object-cover"
               />
             </div>
           </div>

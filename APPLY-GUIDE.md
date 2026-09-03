@@ -1,125 +1,86 @@
-# Apply Guide — Real Photography + Image Pipeline Fix
+# Apply Guide (Round 2)
 
-This package is additive on top of your existing `nnimo-main` codebase.
-Nothing here touches the database schema, Prisma, auth, commerce, or
-anything outside the image-rendering path and the editorial placeholder
-files.
+This package is additive on top of `nnimo-main` **and** on top of the round
+1 patch you already applied (image quality fixes + `public/images/`
+placeholder removal). If you haven't applied round 1 yet, do that first —
+this package doesn't repeat those files unless they needed a further edit.
 
 ## What's in this ZIP
 
 ```
-IMAGE-MAPPING.md                        Full inspection + where every real photo belongs
-IMAGE-EDIT-PROMPTS.md                   Per-image AI upscale/cleanup prompts
-DELETED-FILES.txt                       List of placeholder files to delete
+PHASE-2-NOTES.md                        Full explanation of what was found and fixed
+DELETED-FILES-ROUND-2.txt               Files to delete from public/brand/
 APPLY-GUIDE.md                          This file
-real-photography-ready-to-upload/       Mario's 6 images, cleaned filenames, high-quality JPEG
-code-changes/                           Every modified source file, same folder structure as the repo
+code-changes/                           Every modified/new source file, same folder structure as the repo
+static-files-to-add/                    public/images/hero/main.png — real photo, framed hero treatment
+real-photography-ready-to-upload/       Mario's 6 images again, for reference (you've likely already uploaded these)
 ```
 
-## Step 1 — Apply the code changes
+## Step 1 — Delete the AI-generated brand images
 
-Copy each file under `code-changes/` into the matching path in your
-`nnimo-main` working copy, overwriting the existing file:
+Delete the ten files listed in `DELETED-FILES-ROUND-2.txt` from
+`public/brand/`. Leave `nnino-team.png`, `nnino-wordmark.png`,
+`nnino-tagline.png`, `nnino-motif.png`, and `nnino-motif_4K_upscaled.png` —
+those are genuine.
 
-- `next.config.ts`
-- `components/catalogue/media-image.tsx`
-- `components/catalogue/product-gallery.tsx`
-- `components/site/editorial-image.tsx`
-- `app/(site)/page.tsx`
-- `app/(site)/custom/page.tsx`
-- `app/(site)/c/[slug]/page.tsx`
-- `app/(site)/family/page.tsx`
-- `app/(site)/about/page.tsx`
-- `app/(site)/collections/[slug]/page.tsx`
+## Step 2 — Apply the code changes
 
-**What changed and why:**
+Copy each file under `code-changes/` into the matching path in your working
+copy, overwriting the existing file:
 
-1. **`next.config.ts`** — Next.js 16 requires every image `quality` value to
-   be explicitly allow-listed (`images.qualities`) or the optimiser rejects
-   the request. This was missing, so every image on the site silently fell
-   back to the framework default of 75 — soft for hand-painted glaze detail.
-   Added `qualities: [75, 90, 100]`, widened `deviceSizes` up to 2560 for
-   large desktop displays, and added an explicit `imageSizes` list so small
-   slots (thumbnails, filmstrip) don't get served from the 420px floor.
+- `lib/brand-assets.ts` — rewritten; only exports `WORDMARK`, `TAGLINE_MARK`,
+  `MOTIF`, `TEAM_PHOTO` now. `HERO_PIECE`, `CUSTOM_HERO_PIECE`,
+  `ANTELOPE_VASE`, `COLLECTION_HIGHLIGHTS` are gone.
+- `lib/editorial-images.ts` — `hero-main` now has real alt text since that
+  slot is filled (see step 3).
+- `components/catalogue/media-image.tsx` — added a `fit="framed"` option
+  (see PHASE-2-NOTES.md).
+- `components/site/editorial-image.tsx` — same `fit="framed"` option, plus
+  the homepage hero now uses it.
+- `components/catalogue/product-gallery.tsx` — unchanged since round 1,
+  included here again only because your round-1 apply may not be in place
+  yet; safe to skip if already applied.
+- `next.config.ts` — unchanged since round 1; same note as above.
+- `app/(site)/page.tsx` — Craftsmanship image and the four-tile range grid
+  now use real featured-product photos instead of static AI images; hero
+  now uses `fit="framed"`.
+- `app/(site)/about/page.tsx` — same Craftsmanship-image fix.
+- `app/(site)/custom/page.tsx` — hero and four-tile grid now use real
+  featured-product photos.
+- `app/(site)/c/[slug]/page.tsx`, `app/(site)/family/page.tsx`,
+  `app/(site)/collections/[slug]/page.tsx` — unchanged since round 1,
+  included for completeness.
 
-2. **`components/catalogue/media-image.tsx`** — the shared component behind
-   every product card, collection card, and product detail image. Added a
-   `quality` prop defaulting to **90** (was implicitly 75).
+## Step 3 — Add the real hero image
 
-3. **`components/catalogue/product-gallery.tsx`** — main gallery image and
-   thumbnails now request quality 90; the fullscreen lightbox (where
-   softness is most visible) requests quality **100**.
+Copy `static-files-to-add/public/images/hero/main.png` into your repo at
+the same path (`public/images/hero/main.png`). This is Mario's Zebra Fusion
+range group shot, shown "framed" (blurred backdrop + full uncropped photo)
+so nothing is cropped out.
 
-4. **`components/site/editorial-image.tsx`** — same fix, quality 90, for
-   any future editorial/atmospheric photography placed in `public/images/`.
-
-5. **Page-level `<Image>` usages** (homepage, about, custom, family,
-   campaign landing pages, collection detail) — added explicit `quality`
-   props (90 for standard content images, 95–100 for hero/lightbox-style
-   full-bleed images) everywhere a bare `next/image` call existed outside
-   `MediaImage`/`EditorialImage`.
-
-No `sizes`, `object-fit`, or layout values were changed — those were
-already correct. The bug was specifically the missing quality allow-list
-plus the framework's low default.
-
-## Step 2 — Delete the placeholder editorial images
-
-Delete the files listed in `DELETED-FILES.txt` from your `public/images/`
-folder. This requires **no other code change** — `EditorialImage` already
-falls back to an honest "Studio photography coming soon" panel when a
-slot's file is absent (that's the intended, designed behaviour of that
-component, described in `public/images/README.md`).
-
-Do **not** touch anything under `public/brand/` — none of that was changed
-or should be removed.
-
-## Step 3 — Upload the real photography via Admin → Media
-
-Files are in `real-photography-ready-to-upload/`. Follow the mapping in
-`IMAGE-MAPPING.md` exactly — two are exact product-name matches, the rest
-need your confirmation since I can't see your live database from here:
-
-1. `double-handle-serving-platter-monstera.jpg` → attach to product
-   **"Double Handle Serving Platter — Monstera"**
-2. `double-handle-serving-platter-zebra-fusion.jpg` → attach to product
-   **"Double Handle Serving Platter — Zebra Fusion"** (this is almost
-   certainly the platter currently showing low-res at
-   `/products/double-handle-surving-plater`)
-3. `zebra-fusion-collection-range-group-shot.jpg` → upload as the
-   **Zebra Fusion collection hero image** (Admin → Collections → Zebra Fusion)
-4. `double-handle-serving-platter-flame-lily.jpg` → use as the
-   **Flame Lily collection hero**, or attach to a new product if you add one
-5. `zebra-fusion-tea-set.jpg` → secondary gallery image on the Zebra Fusion
-   collection page, or attach to a new "Zebra Fusion Tea Set" product
-6. `antipasto-platter-round-zebra-black-white.jpg` → hold back until a
-   matching "Antipasto Platter Round — Zebra" product is added, or add it
-   now if you're ready to sell that piece
-
-For best results, run the images needing cleanup through the prompts in
-`IMAGE-EDIT-PROMPTS.md` first (mainly: removing the visible display stands,
-and upscaling images 1, 5 and 6 before they're used at large display sizes).
+**If you'd rather use a different photo for this slot** — including the
+upscaled version of this same image, or a proper wide/landscape shot —
+just replace this file with yours at the same path. No code change needed
+either way.
 
 ## Step 4 — Verify
 
-After deploying:
-- `/products/double-handle-surving-plater` should show the real Zebra Fusion
-  platter at full sharpness once its Media is updated in Admin.
-- Homepage hero, About "process" strip, Contact "inside and out", and the
-  Collections banner will now show the clean "coming soon" panel instead of
-  the AI-generated placeholder photography, until real studio/team photos
-  are uploaded.
-- Any newly uploaded product/collection/team image should render
-  noticeably sharper than before, since it now requests quality 90–100
-  instead of the previous default of 75.
+- Homepage hero should now show the Zebra Fusion range photo, softly
+  framed rather than harshly cropped.
+- Homepage "Craftsmanship" section and the four-tile grid under "The Nnino
+  legacy" should show your real featured products (whatever's published in
+  Admin right now) — this updates automatically as your catalogue changes,
+  no further deploys needed for new products to appear here.
+- About page "Craftsmanship" section — same real-photo behaviour.
+- Custom page hero and four-tile grid — same.
+- `public/brand/` should contain only: `nnino-team.png`,
+  `nnino-wordmark.png`, `nnino-tagline.png`, `nnino-motif.png`,
+  `nnino-motif_4K_upscaled.png`.
 
-## What was intentionally left alone
+## What's still a placeholder, honestly
 
-- Database schema, Prisma, seed data — untouched.
-- `/public/brand/` — untouched, per instruction.
-- Loading states, spacing, responsive layout, and object-fit/crop
-  behaviour — these were already correctly built (Phase 9 gallery,
-  skeleton loading states, `aspect-*` containers); the actual defect was
-  narrowly the missing quality allow-list plus the AI placeholder images,
-  both addressed above. No other UI/UX changes were made, to keep this
-  patch minimal and easy to review.
+If you haven't published at least one featured product with a photo in
+Admin yet, the Craftsmanship/legacy/custom sections above will show the
+clean "Studio photography coming soon" panel instead of a real photo —
+that's the intended, honest behaviour, not a bug. Once you mark a product
+as featured with a photo attached, it'll appear automatically.

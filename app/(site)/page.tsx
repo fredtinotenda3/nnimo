@@ -7,10 +7,9 @@ import {
   getFeaturedCollections,
   getFeaturedProducts,
   getPublicTeam,
+  type ProductCardData,
 } from "@/lib/catalogue";
 import {
-  ANTELOPE_VASE,
-  COLLECTION_HIGHLIGHTS,
   MOTIF,
   TEAM_PHOTO,
 } from "@/lib/brand-assets";
@@ -22,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ProductCard } from "@/components/catalogue/product-card";
 import { CollectionCard } from "@/components/catalogue/collection-card";
+import { MediaImage } from "@/components/catalogue/media-image";
 import { EditorialImage } from "@/components/site/editorial-image";
 
 export const metadata: Metadata = {
@@ -37,7 +37,7 @@ export const dynamic = "force-dynamic";
 export default async function HomePage() {
   const [collections, pieces, team, copy] = await Promise.all([
     getFeaturedCollections(3),
-    getFeaturedProducts(6),
+    getFeaturedProducts(9),
     getPublicTeam(),
     getContentBlocks([
       "homepage.hero.headline",
@@ -58,19 +58,20 @@ export default async function HomePage() {
       />
 
       {/* ============================================================== 1. Hero
-          Full-bleed cinematic atmosphere shot (public/images/hero/main.png)
-          with a dark gradient and the headline overlaid, rather than the
-          earlier split layout built around the tall HERO_PIECE product
-          photo. HERO_PIECE (the giraffe tureen) is no longer used on any
-          page — it's kept in lib/brand-assets.ts in case it's wanted again.
+          Full-bleed cinematic atmosphere shot (public/images/hero/main.png).
           Falls back to the standard "coming soon" panel via EditorialImage
-          if public/images/hero/main.png is ever removed. */}
+          if that file isn't present — see lib/editorial-images.ts. The
+          previous static giraffe-tureen hero image was AI-generated and has
+          been removed; drop a real photograph at that path to fill this
+          slot, or use the admin's campaign hero image for a temporary
+          full-bleed hero backed by a real Media upload instead. */}
       <section className="relative min-h-[92svh] w-full overflow-hidden bg-charcoal">
         <EditorialImage
           slot="hero-main"
           caption="Nnino Ceramics"
           priority
           sizes="100vw"
+          fit="framed"
           className="absolute inset-0"
           fallbackClassName="absolute inset-0"
         />
@@ -178,7 +179,7 @@ export default async function HomePage() {
             />
           ) : (
             <ul className="grid gap-x-8 gap-y-14 sm:grid-cols-2 lg:grid-cols-3">
-              {pieces.map((piece) => (
+              {pieces.slice(0, 6).map((piece: ProductCardData) => (
                 <li key={piece.id}>
                   <ProductCard product={piece} />
                 </li>
@@ -203,18 +204,21 @@ export default async function HomePage() {
         </div>
       </Section>
 
-      {/* ===================================================== 5. Craftsmanship */}
+      {/* ===================================================== 5. Craftsmanship
+          Uses the first featured piece's real photograph rather than the
+          previously hard-coded (AI-generated) antelope vase image. Falls
+          back to MediaImage's own "coming soon" panel if that piece has no
+          photo uploaded yet. */}
       <Section tone="sunken">
         <div className="grid items-center gap-12 lg:grid-cols-12 lg:gap-16">
           <div className="lg:col-span-6">
-            <div className="relative aspect-[3/4] w-full overflow-hidden">
-              <Image
-                src={ANTELOPE_VASE.src}
-                alt={ANTELOPE_VASE.alt}
-                fill
+            <div className="relative aspect-[3/4] w-full overflow-hidden bg-surface-sunken">
+              <MediaImage
+                media={pieces[0]?.images[0]?.media ?? null}
+                fallbackTitle={pieces[0]?.name ?? "Nnino Ceramics"}
+                fallbackSubtitle="Handmade in Bulawayo"
                 sizes="(min-width: 1024px) 45vw, 90vw"
                 quality={90}
-                className="object-cover"
               />
             </div>
           </div>
@@ -259,22 +263,28 @@ export default async function HomePage() {
           </div>
         </div>
 
-        {/* One piece from each of four collections — a glimpse of the range's
-            variety, not four angles of a single tureen. */}
-        <ul className="mt-16 grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-          {COLLECTION_HIGHLIGHTS.map((view) => (
-            <li key={view.src} className="relative aspect-[3/4] overflow-hidden">
-              <Image
-                src={view.src}
-                alt={view.alt}
-                fill
-                sizes="(min-width: 1024px) 24vw, 45vw"
-                quality={90}
-                className="object-cover"
-              />
-            </li>
-          ))}
-        </ul>
+        {/* One real photograph from up to four featured pieces — a glimpse
+            of the range's variety. Previously a hard-coded set of four
+            AI-generated images; now driven by whatever is actually
+            published, with an honest "coming soon" tile for any piece
+            that has no photo uploaded yet. */}
+        {pieces.length > 0 ? (
+          <ul className="mt-16 grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+            {pieces.slice(0, 4).map((piece: ProductCardData) => (
+              <li
+                key={piece.id}
+                className="relative aspect-[3/4] overflow-hidden bg-surface-sunken"
+              >
+                <MediaImage
+                  media={piece.images[0]?.media ?? null}
+                  fallbackTitle={piece.name}
+                  sizes="(min-width: 1024px) 24vw, 45vw"
+                  quality={90}
+                />
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </Section>
 
       {/* ============================================ 6.5. Editorial texture break

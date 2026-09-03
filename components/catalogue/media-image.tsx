@@ -30,6 +30,7 @@ export function MediaImage({
   priority = false,
   fallbackClassName,
   quality = 90,
+  fit = "cover",
 }: {
   media: MediaRef;
   fallbackTitle: string;
@@ -46,6 +47,14 @@ export function MediaImage({
    * be set to.
    */
   quality?: number;
+  /**
+   * "cover" (default) fills the frame and crops. "framed" is for a portrait
+   * product photograph sitting in a wide/short hero-style slot — instead of
+   * cropping most of the photo away, it shows a soft blurred, darkened
+   * version of the same image as an ambient backdrop with the full,
+   * uncropped photo centred on top.
+   */
+  fit?: "cover" | "framed";
 }) {
   if (!media) {
     return (
@@ -67,12 +76,40 @@ export function MediaImage({
     );
   }
 
+  const src = resolveMediaUrl(media);
+  const alt = media.altText?.trim() || fallbackTitle;
+
+  if (fit === "framed") {
+    return (
+      <div className={cn("relative h-full w-full overflow-hidden bg-charcoal", className)}>
+        <Image
+          src={src}
+          alt=""
+          aria-hidden="true"
+          fill
+          sizes={sizes}
+          quality={40}
+          className="scale-110 object-cover opacity-60 blur-2xl"
+        />
+        <Image
+          src={src}
+          alt={alt}
+          fill
+          sizes={sizes}
+          priority={priority}
+          quality={95}
+          className="object-contain"
+        />
+      </div>
+    );
+  }
+
   return (
     <Image
-      src={resolveMediaUrl(media)}
+      src={src}
       // Alt text is the team's, entered with the upload. Falling back to the
       // piece name is better than an empty alt on a content image.
-      alt={media.altText?.trim() || fallbackTitle}
+      alt={alt}
       fill
       sizes={sizes}
       priority={priority}

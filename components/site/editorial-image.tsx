@@ -21,6 +21,15 @@ export function EditorialImage({
   className,
   fallbackClassName,
   priority = false,
+  /**
+   * "cover" (default) fills the frame and crops — right for slots the
+   * source photo was shot to match. "framed" is for a portrait product
+   * photograph sitting in a wide/full-bleed slot (e.g. the homepage hero):
+   * instead of cropping most of the photo away, it shows a soft, blurred,
+   * darkened version of the same image as an ambient backdrop with the
+   * full, uncropped photo centred on top — no detail is lost.
+   */
+  fit = "cover",
 }: {
   slot: EditorialSlotKey;
   caption: string;
@@ -28,6 +37,7 @@ export function EditorialImage({
   className?: string;
   fallbackClassName?: string;
   priority?: boolean;
+  fit?: "cover" | "framed";
 }) {
   const resolved = resolveEditorialImage(slot);
 
@@ -44,6 +54,31 @@ export function EditorialImage({
         <span className="text-metadata mt-1 text-muted-foreground">
           Studio photography coming soon
         </span>
+      </div>
+    );
+  }
+
+  if (fit === "framed") {
+    return (
+      <div className={cn("relative h-full w-full overflow-hidden bg-charcoal", className)}>
+        <Image
+          src={resolved.src}
+          alt=""
+          aria-hidden="true"
+          fill
+          sizes={sizes}
+          quality={40}
+          className="scale-110 object-cover opacity-60 blur-2xl"
+        />
+        <Image
+          src={resolved.src}
+          alt={resolved.alt || caption}
+          fill
+          sizes={sizes}
+          priority={priority}
+          quality={95}
+          className="object-contain"
+        />
       </div>
     );
   }

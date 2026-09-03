@@ -6,11 +6,12 @@
  * is a named list of *atmospheric/editorial* image slots — clay texture,
  * studio interior, hands at work — for photography that does not exist yet.
  *
- * Every slot below currently resolves to "not filled" because no file has
- * been placed at its path. Nothing on the live site depends on any of these
- * existing — `<EditorialImage>` renders a "coming soon" panel until a real
- * file lands at the named path. Adding a photograph later never requires
- * touching this list's consumers, only adding the file itself.
+ * Every slot below resolves to "not filled" until a real file is placed at
+ * its path (hero-main is the current exception — see EDITORIAL_SLOTS below).
+ * Nothing on the live site depends on any slot existing — `<EditorialImage>`
+ * renders a "coming soon" panel until a real file lands at the named path.
+ * Adding a photograph later never requires touching this list's consumers,
+ * only adding the file itself.
  *
  * This is deliberately server-only (uses `node:fs`) — it must be imported
  * from Server Components/pages only, the same as the rest of the app's data
@@ -45,7 +46,10 @@ type EditorialSlotDefinition = {
 };
 
 const EDITORIAL_SLOTS: Record<EditorialSlotKey, EditorialSlotDefinition> = {
-  "hero-main": { path: "hero/main.png", alt: "" },
+  "hero-main": {
+    path: "hero/main.png",
+    alt: "A display of hand-painted Nnino ceramics from the Zebra Fusion range — plates, a teapot, cups and saucers, a honeypot and napkin holders, each hand-sculpted and hand-painted with zebra-stripe and rainbow-accent glaze.",
+  },
   "hero-alternate": { path: "hero/alternate.png", alt: "" },
   "craft-clay": { path: "craft/clay.png", alt: "" },
   "craft-hands": { path: "craft/hands.png", alt: "" },

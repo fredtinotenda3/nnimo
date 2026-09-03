@@ -1,0 +1,25 @@
+These files were DELETED from public/brand/ — confirmed AI-generated, not
+real Nnino photography (see PHASE-2-NOTES.md for how each was identified).
+
+public/brand/antelope-vase.png
+public/brand/custom-hero-big-five.png
+public/brand/giraffe-tureen-detail.png
+public/brand/giraffe-tureen-floral.png
+public/brand/giraffe-tureen-front.png
+public/brand/giraffe-tureen-side.png
+public/brand/hero-giraffe-tureen.png
+public/brand/range-elephant.png
+public/brand/range-leopard.png
+public/brand/range-sable.png
+
+KEPT in public/brand/ (confirmed genuine — not photographs of ceramics being
+passed off as real, or actual brand identity artwork):
+
+public/brand/nnino-team.png            — real photo of the team, kept
+public/brand/nnino-wordmark.png        — logo artwork, not a photo
+public/brand/nnino-tagline.png         — logo artwork, not a photo
+public/brand/nnino-motif.png           — texture/pattern artwork, not a photo
+public/brand/nnino-motif_4K_upscaled.png — same, upscaled version
+
+To apply: delete the ten files in the first list from your working copy.
+Leave everything else in public/brand/ untouched.
