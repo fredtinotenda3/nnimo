@@ -97,6 +97,7 @@ export default async function LandingPage({ params }: Params) {
             fill
             priority
             sizes="100vw"
+            quality={95}
             className="object-cover"
           />
           <div aria-hidden="true" className="absolute inset-0 bg-charcoal/50" />

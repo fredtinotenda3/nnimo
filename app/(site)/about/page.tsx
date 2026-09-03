@@ -109,6 +109,7 @@ export default async function AboutPage() {
                 alt={ANTELOPE_VASE.alt}
                 fill
                 sizes="(min-width: 1024px) 45vw, 90vw"
+                quality={90}
                 className="object-cover"
               />
             </div>
@@ -176,6 +177,7 @@ export default async function AboutPage() {
             alt={TEAM_PHOTO.alt}
             fill
             sizes="100vw"
+            quality={90}
             className="object-cover"
           />
         </div>

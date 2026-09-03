@@ -213,6 +213,7 @@ export default async function HomePage() {
                 alt={ANTELOPE_VASE.alt}
                 fill
                 sizes="(min-width: 1024px) 45vw, 90vw"
+                quality={90}
                 className="object-cover"
               />
             </div>
@@ -268,6 +269,7 @@ export default async function HomePage() {
                 alt={view.alt}
                 fill
                 sizes="(min-width: 1024px) 24vw, 45vw"
+                quality={90}
                 className="object-cover"
               />
             </li>
@@ -298,6 +300,7 @@ export default async function HomePage() {
                 alt={TEAM_PHOTO.alt}
                 fill
                 sizes="(min-width: 1024px) 55vw, 90vw"
+                quality={90}
                 className="object-cover"
               />
             </div>

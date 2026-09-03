@@ -137,6 +137,7 @@ export function ProductGallery({
           fill
           sizes="(min-width: 1024px) 58vw, 100vw"
           priority={active === 0}
+          quality={90}
           className="object-cover transition-opacity duration-300 motion-reduce:transition-none"
         />
 
@@ -200,6 +201,7 @@ export function ProductGallery({
                   aria-hidden="true"
                   fill
                   sizes="(min-width: 1024px) 14vw, 20vw"
+                  quality={90}
                   className="object-cover"
                 />
               </button>
@@ -241,6 +243,7 @@ export function ProductGallery({
               alt={alt}
               fill
               sizes="100vw"
+              quality={100}
               className="object-contain"
             />
 

@@ -71,7 +71,20 @@ const nextConfig: NextConfig = {
     // Product photography is the visual hero; serve modern formats and only the
     // widths the layout actually uses.
     formats: ["image/avif", "image/webp"],
-    deviceSizes: [420, 640, 828, 1080, 1280, 1920],
+    deviceSizes: [420, 640, 828, 1080, 1280, 1920, 2560],
+    // Next.js keeps this list separate from deviceSizes because it is used for
+    // the *fixed*-size cases (thumbnails, avatars) rather than viewport-relative
+    // `fill` layouts. The gallery filmstrip and admin thumbnails render well
+    // below the smallest deviceSize, so without these the optimiser would still
+    // serve a 420w image down to a 96px slot — correct, but wasteful.
+    imageSizes: [96, 128, 192, 256, 384],
+    // Next.js 16 requires every quality value used by an <Image> to be
+    // allow-listed here, or the optimiser 400s the request. 75 is the
+    // framework default (kept for anything that doesn't set `quality`); 90 is
+    // what MediaImage/ProductGallery/EditorialImage now request explicitly —
+    // hand-painted glaze detail and fine linework need more headroom than the
+    // 75 default gives before AVIF/WebP re-encoding starts to look soft.
+    qualities: [75, 90, 100],
     remotePatterns: mediaRemotePattern(),
     // An SVG that reaches the optimiser is a script that reaches the origin.
     // Upload validation already rejects SVG (lib/media/inspect.ts recognises

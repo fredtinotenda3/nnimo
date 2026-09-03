@@ -50,6 +50,7 @@ export default async function FamilyPage() {
             fill
             priority
             sizes="100vw"
+            quality={95}
             className="object-cover"
           />
           <div aria-hidden="true" className="absolute inset-0 bg-charcoal/50" />
@@ -85,6 +86,7 @@ export default async function FamilyPage() {
                         alt={member.photo.altText?.trim() || member.name}
                         fill
                         sizes="(min-width: 1024px) 30vw, (min-width: 640px) 45vw, 90vw"
+                        quality={90}
                         className="object-cover"
                       />
                     </div>

@@ -29,6 +29,7 @@ export function MediaImage({
   className,
   priority = false,
   fallbackClassName,
+  quality = 90,
 }: {
   media: MediaRef;
   fallbackTitle: string;
@@ -37,6 +38,14 @@ export function MediaImage({
   className?: string;
   priority?: boolean;
   fallbackClassName?: string;
+  /**
+   * Defaults to 90 rather than next/image's own default of 75. Product
+   * photography carries fine painted linework and glaze texture that the
+   * default quality softens visibly after AVIF/WebP re-encoding — see
+   * next.config.ts `images.qualities` for the allow-listed values this can
+   * be set to.
+   */
+  quality?: number;
 }) {
   if (!media) {
     return (
@@ -67,6 +76,7 @@ export function MediaImage({
       fill
       sizes={sizes}
       priority={priority}
+      quality={quality}
       className={cn("object-cover", className)}
     />
   );
