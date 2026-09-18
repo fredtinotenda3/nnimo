@@ -136,15 +136,19 @@ async function seedTeam(): Promise<void> {
       data: {
         name: member.name,
         role: member.role,
+        craft: member.craft ?? null,
+        bio: member.bio ?? null,
+        featured: member.featured ?? false,
+        sourceNote: member.sourceNote ?? null,
         sortOrder: index,
-        // craft, bio, story and photo stay null on purpose. The source gives a
-        // name and a role; inventing a biography for a real person is not on.
+        // photo stays null on purpose — no photograph is invented; it is
+        // attached later in the admin from an uploaded Media record.
       },
     });
     void slug;
   }
 
-  console.log(`  ✓ ${TEAM.length} team members (names and roles only, no biographies)`);
+  console.log(`  ✓ ${TEAM.length} team members`);
 }
 
 type ProductSeed = {
@@ -286,7 +290,7 @@ async function main() {
   await seedSettings();
 
   console.log("\nNot seeded, deliberately: stock levels, orders, customers,");
-  console.log("reviews, testimonials, sales figures and artist biographies.");
+  console.log("reviews, testimonials and sales figures.");
   console.log("None of these are established by the source material.\n");
 }
 

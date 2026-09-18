@@ -13,6 +13,7 @@
     "db:migrate": "dotenv -e .env -- prisma migrate dev",
     "db:deploy": "dotenv -e .env -- prisma migrate deploy",
     "db:seed": "dotenv -e .env -- tsx prisma/seed.ts",
+    "db:update-team": "dotenv -e .env -- tsx scripts/update-team-profiles.ts",
     "db:studio": "dotenv -e .env -- prisma studio",
     "db:reset": "dotenv -e .env -- prisma migrate reset",
     "test": "vitest run --config vitest.config.ts",

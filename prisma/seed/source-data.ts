@@ -79,26 +79,96 @@ export const COLLECTIONS: SeedCollection[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// THE NNINO FAMILY — names and roles as supplied.
+// THE NNINO FAMILY — names and roles as originally supplied (Phase 1).
 //
-// bio, craft, story and photograph are deliberately absent. The source gives a
-// name and a role and nothing else; writing biographies for ten real people
-// would be inventing facts about them. The admin fills these in.
+// bio, craft, story and photograph were deliberately absent at that point. The
+// source gave a name and a role and nothing else; writing biographies for ten
+// real people would have been inventing facts about them.
+//
+// UPDATE (2026): Marion Moyo supplied a full written profile for every team
+// member (age, family, tenure, ceramics history). That text is transcribed
+// below verbatim in substance — nothing beyond what she stated is added. This
+// file still only feeds a *fresh* database (`seedTeam()` in prisma/seed.ts
+// will not overwrite a row that already exists, by design — it must not
+// clobber real admin edits). The production database, which already had these
+// ten rows from the original seed, is updated separately by
+// scripts/update-team-profiles.ts, which reads this same TEAM array.
 // ---------------------------------------------------------------------------
 
-export type SeedArtist = { name: string; role: string };
+export type SeedArtist = {
+  name: string;
+  role: string;
+  craft?: string;
+  bio?: string;
+  featured?: boolean;
+  sourceNote?: string;
+  /**
+   * Name this row was previously seeded under, if different from `name`. Lets
+   * the one-off update script find and correct the existing row instead of
+   * creating a duplicate. Not written to the database.
+   */
+  previousName?: string;
+};
 
 export const TEAM: SeedArtist[] = [
-  { name: "Nkosinathi Mabhena", role: "Potter" },
-  { name: "Shelton Sibanda", role: "Sculptor" },
-  { name: "Pride Madzura", role: "Sculptor" },
-  { name: "Marion Moyo", role: "Artist" },
-  { name: "Joseph Mpofu", role: "Artist" },
-  { name: "Collin Mpofu", role: "Artist" },
-  { name: "Nephat Muleya", role: "Artist" },
-  { name: "Eugene Nyahodza", role: "Artist" },
-  { name: "Noel Ncube", role: "Kiln, glazing and packing" },
-  { name: "Sherry Jena", role: "Moulder" },
+  {
+    name: "Marion Moyo",
+    role: "Team Leader, Production Manager and Artist",
+    craft: "Potter",
+    bio: "Marion is the team leader and Production Manager at Nnino Ceramics, and works as both an artist and a potter. She joined Nnino in 2016 as an intern and has been with the studio ever since. She trained in ceramics at Mzilikazi Arts and Craft in 2011 and 2012.",
+    featured: true,
+    sourceNote:
+      'Studio-supplied profile (2026) confirms Marion holds both the "Artist" and "Production Manager" titles, resolving the earlier conflict between the catalogue ("Artist") and her business card ("Production Manager").',
+  },
+  {
+    name: "Sherry Jena",
+    role: "Master, Moulding Section",
+    craft: "Moulding",
+    bio: "Sherry is 64 years old, a father of four and grandfather of seven. He is Master of the Moulding section at Nnino Ceramics, where he has worked since 2014. He has been in the ceramics industry since 1975.",
+  },
+  {
+    name: "Nkosinathi Mabhena",
+    role: "Potter",
+    bio: "Nkosinathi is 54 years old and a father of three. He is a potter at Nnino Ceramics, where he has worked for 9 years. He has been in the ceramics industry since 1994, having previously worked at other ceramics companies around Bulawayo.",
+  },
+  {
+    name: "Pride Madzura",
+    role: "Sculptor",
+    bio: "Pride is 27 years old and works in sculpture at Nnino Ceramics. He first joined as an intern in 2021 for a year, then spent time working outside the country before rejoining the Nnino team in 2024.",
+  },
+  {
+    name: "Shelton Sibanda",
+    role: "Sculptor",
+    bio: "Shelton is 26 years old and works in sculpture at Nnino Ceramics. He started as an intern in 2021 for a year, then rejoined the team in 2023.",
+  },
+  {
+    name: "Noel Ncube",
+    role: "Glazer, Packing and Kiln Operator",
+    bio: "Noel is 46 years old and a father of two. He works as a glazer and kiln and packing operator at Nnino Ceramics, where he has worked since 2014. He has been in the ceramics industry for 22 years.",
+  },
+  {
+    name: "Collin Mpofu",
+    role: "Master Artist",
+    bio: "Collin is 59 years old, a father and a grandfather. He is a Master Artist at Nnino Ceramics, where he has worked since 2014. He has been in the ceramics industry for 28 years, having previously worked at other ceramics companies around Bulawayo.",
+  },
+  {
+    name: "Joseph Mpofu",
+    role: "Master Artist",
+    bio: "Joseph is 48 years old and a father of two. He is a Master Artist at Nnino Ceramics, where he has worked since 2014. He has been in the ceramics industry for 24 years, and is also a graduate of DMR Earthmoving Machines.",
+  },
+  {
+    name: "Nephat Muleya",
+    role: "Artist",
+    bio: "Nephat is 50 years old and a father of five. He is an Artist at Nnino Ceramics, where he has worked since 2022. He has been in the ceramics industry since 1997, having previously worked at other ceramics companies around Bulawayo.",
+  },
+  {
+    name: "Eugene Nyawodza",
+    role: "Artist",
+    previousName: "Eugene Nyahodza",
+    bio: "Eugene is 40 years old and a father of three. He is an Artist at Nnino Ceramics, where he has worked since 2024. He has been in the ceramics industry for a number of years, having previously worked at other ceramics companies around Bulawayo.",
+    sourceNote:
+      'Name corrected from "Eugene Nyahodza" (original seed transcription) to "Eugene Nyawodza" per the studio-supplied team list (2026).',
+  },
 ];
 
 // ---------------------------------------------------------------------------
