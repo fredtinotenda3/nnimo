@@ -101,7 +101,23 @@ export async function updateTeamMemberAction(
   });
   if (!existing) return formError("That team member no longer exists.");
 
-  await db.artist.update({ where: { id }, data: parsed.data });
+  try {
+    await db.artist.update({ where: { id }, data: parsed.data });
+  } catch (error) {
+    // A photo picked from a stale page (e.g. a second tab open since before an
+    // upload, or a photo deleted from Media in the meantime) fails here as a
+    // foreign-key violation on photoId — not a slug clash like the product/
+    // collection forms, so it gets its own check rather than reusing
+    // uniqueViolationTarget from lib/admin/slug.ts.
+    if (isForeignKeyViolation(error, "photoId")) {
+      return formError(
+        "That photograph could not be found — it may have been deleted, or this page was open before it was uploaded. Refresh and pick it again.",
+        { photoId: "No longer available" },
+      );
+    }
+    logger.error("admin.team.update_failed", { userId: user.id, id, error });
+    return formError("The changes could not be saved. Please try again.");
+  }
 
   await recordAudit({
     userId: user.id,
@@ -118,4 +134,20 @@ export async function updateTeamMemberAction(
   revalidateTeam();
   revalidatePath(`/admin/team/${id}`);
   return formSuccess("Saved.");
+}
+
+/**
+ * Postgres foreign-key-violation code, as surfaced by Prisma (P2003).
+ *
+ * `field` narrows to the column this call actually cares about — `meta.field_name`
+ * on a Postgres-backed Prisma error is the constraint name (e.g.
+ * `Artist_photoId_fkey`), not the bare column, so this checks for the column
+ * name appearing in it rather than an exact match.
+ */
+function isForeignKeyViolation(error: unknown, field: string): boolean {
+  if (typeof error !== "object" || error === null || !("code" in error)) return false;
+  if ((error as { code: unknown }).code !== "P2003") return false;
+  const meta = (error as { meta?: { field_name?: unknown } }).meta;
+  const fieldName = meta?.field_name;
+  return typeof fieldName === "string" && fieldName.toLowerCase().includes(field.toLowerCase());
 }

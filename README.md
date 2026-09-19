@@ -1,52 +1,37 @@
-# Nnino team update — delivery package
+# Team photo 500 error — fix
 
-Only changed/new files are included here (no `node_modules`, `.next`,
-generated Prisma client, or untouched files). Copy these into your project
-at the matching paths, overwriting the existing versions.
+## File changed
+`app/admin/team/actions.ts` — `updateTeamMemberAction`
 
-## Files
+## The bug
+`db.artist.update({ where: { id }, data: parsed.data })` was called with no
+`try/catch`. Every sibling mutation that writes to the database this way
+(`createTeamMemberAction` in this same file, `updateProductAction`,
+`attachProductImageAction`) wraps the write in a try/catch and returns a
+readable `formError(...)` on failure. This one didn't, so any database error
+on save — including a foreign-key violation on `photoId` — propagated as an
+unhandled exception, which Next.js turns into a bare `500 Internal Server
+Error` with no message, instead of the normal in-form error banner.
 
-- `prisma/seed/source-data.ts` — **modified.** Added craft/bio/role/featured
-  for all 10 team members, corrected "Eugene Nyahodza" → "Eugene Nyawodza".
-- `prisma/seed.ts` — **modified.** `seedTeam()` now writes the full profile
-  (craft, bio, featured, sourceNote) when creating a team member on a fresh
-  database. Existing rows are still never overwritten by this file, by
-  design — see `scripts/update-team-profiles.ts` for updating your live data.
-- `scripts/update-team-profiles.ts` — **new.** One-off script to push the new
-  bios into your existing production database. Run once — see
-  `TEAM-UPDATE-GUIDE.md` §1.
-- `package.json` — **modified.** Added one script:
-  `"db:update-team": "dotenv -e .env -- tsx scripts/update-team-profiles.ts"`.
-- `TEAM-UPDATE-GUIDE.md` — how to run the script and attach photos in Admin.
-- `TEAM-IMAGE-PROMPTS.md` — per-photo assessment and AI editing prompts.
-- `VERCEL-SSL-FIX.md` — the SSL warning explained, plus the real upload bug
-  and its fix.
+## The fix
+Wrapped the update in try/catch. A foreign-key violation on `photoId`
+specifically (Postgres/Prisma code `P2003`) now returns a clear, actionable
+message: *"That photograph could not be found — it may have been deleted, or
+this page was open before it was uploaded. Refresh and pick it again."* Any
+other database error is logged (`admin.team.update_failed`, with the real
+error and the artist id, visible in Vercel's function logs) and returns a
+generic *"The changes could not be saved. Please try again."* — never a raw
+500 again.
 
 ## Checks run
-
-- `npx tsc --noEmit` — **could not run to completion in this sandbox.** The
-  project's generated Prisma client (`lib/generated/prisma`) is produced by
-  `prisma generate`, which needs to download an engine binary from
-  `binaries.prisma.sh` — a domain this sandbox's network doesn't allow.
-  Without that generated client, the *entire* codebase fails to type-check on
-  an unrelated, pre-existing condition (missing module), not because of
-  anything changed here. **Please run `npm run db:generate && npm run
-  typecheck` yourself before deploying** — it should be clean.
-- As a substitute, every changed/new `.ts` file was syntax-checked with
-  esbuild (catches malformed syntax without needing type resolution) — all
-  three passed.
-- `npm run lint` (ESLint) — run directly against the three changed/new files:
-  **clean, no errors or warnings.**
-- `npm run test` (Vitest) — ran the full suite: **439 tests passed.** Two
-  test files failed, but both failures are the same pre-existing
-  missing-generated-client issue described above (`Cannot find module
-  '@/lib/generated/prisma/enums'`), unrelated to these changes — confirmed by
-  running `tests/admin-validation.test.ts` (the suite that references team
-  member data directly) in isolation: **26/26 passed.**
-
-## What's still manual
-
-Photo editing/upscaling, uploading files through Admin → Media, and
-attaching them to each team member all require a human in the browser (and,
-for the photos, an external AI image tool) — see `TEAM-UPDATE-GUIDE.md` for
-the exact steps.
+- `npx tsc --noEmit` — could not complete in this sandbox; `prisma generate`
+  needs `binaries.prisma.sh`, which this sandbox's network doesn't allow, and
+  without the generated Prisma client the *entire* codebase fails to
+  type-check on that one pre-existing, unrelated condition. As a substitute,
+  the changed file was syntax-checked with esbuild (passed) — **please run
+  `npm run typecheck` yourself** after `npm run db:generate`.
+- `npx eslint app/admin/team/actions.ts` — clean, no errors or warnings.
+- `npx vitest run` — full suite: 439 tests passed. The only 2 failing test
+  files fail on the same missing-generated-client condition, unrelated to
+  this change. `tests/admin-validation.test.ts` (26 tests, covers team-form
+  validation) passes in full.
