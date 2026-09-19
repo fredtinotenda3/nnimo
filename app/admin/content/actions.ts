@@ -6,7 +6,6 @@ import { logger } from "@/lib/logger";
 import { requireMutationPermission } from "@/lib/session";
 import { recordAudit } from "@/lib/audit";
 import {
-  IDLE_FORM_STATE,
   field,
   formError,
   formSuccess,
@@ -15,8 +14,6 @@ import {
 } from "@/lib/admin/forms";
 import { contentBlockSchema } from "@/lib/admin/schemas";
 import { contentDefinition } from "@/lib/admin/content-registry";
-
-export { IDLE_FORM_STATE };
 
 /**
  * Editing site copy.

@@ -5,7 +5,6 @@ import { db } from "@/lib/db";
 import { requireMutationPermission } from "@/lib/session";
 import { recordAudit } from "@/lib/audit";
 import {
-  IDLE_FORM_STATE,
   field,
   formError,
   formSuccess,
@@ -13,8 +12,6 @@ import {
   type AdminFormState,
 } from "@/lib/admin/forms";
 import { customerSchema, idParam } from "@/lib/admin/schemas";
-
-export { IDLE_FORM_STATE };
 
 /**
  * Customer record edits.

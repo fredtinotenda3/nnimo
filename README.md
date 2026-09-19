@@ -1,37 +1,69 @@
-# Team photo 500 error — fix
-
-## File changed
-`app/admin/team/actions.ts` — `updateTeamMemberAction`
+# "use server" invalid export — fix
 
 ## The bug
-`db.artist.update({ where: { id }, data: parsed.data })` was called with no
-`try/catch`. Every sibling mutation that writes to the database this way
-(`createTeamMemberAction` in this same file, `updateProductAction`,
-`attachProductImageAction`) wraps the write in a try/catch and returns a
-readable `formError(...)` on failure. This one didn't, so any database error
-on save — including a foreign-key violation on `photoId` — propagated as an
-unhandled exception, which Next.js turns into a bare `500 Internal Server
-Error` with no message, instead of the normal in-form error banner.
 
-## The fix
-Wrapped the update in try/catch. A foreign-key violation on `photoId`
-specifically (Postgres/Prisma code `P2003`) now returns a clear, actionable
-message: *"That photograph could not be found — it may have been deleted, or
-this page was open before it was uploaded. Refresh and pick it again."* Any
-other database error is logged (`admin.team.update_failed`, with the real
-error and the artist id, visible in Vercel's function logs) and returns a
-generic *"The changes could not be saved. Please try again."* — never a raw
-500 again.
+Next.js requires that every top-level export of a `"use server"` file be
+either an async function or a type. Five files under `app/admin/` were
+re-exporting `IDLE_FORM_STATE` — an object, not a function — as a convenience
+so a couple of call sites could import it from the actions file instead of
+`@/lib/admin/forms`:
+
+```ts
+export { IDLE_FORM_STATE };
+```
+
+This is exactly the bug already fixed in `media/actions.ts` and
+`team/actions.ts` in an earlier pass — except `team/actions.ts` still had it
+(that earlier fix only addressed the try/catch bug in
+`updateTeamMemberAction`, not this export). Four more files had the same
+pattern.
+
+## Files fixed (5)
+
+- `app/admin/team/actions.ts`
+- `app/admin/customers/actions.ts`
+- `app/admin/content/actions.ts`
+- `app/admin/settings/actions.ts`
+- `app/admin/inquiries/actions.ts`
+
+In each: removed `export { IDLE_FORM_STATE };`, and removed `IDLE_FORM_STATE`
+from the import list from `@/lib/admin/forms` (confirmed unused elsewhere in
+every one of these files — each had exactly two occurrences, the import and
+the re-export, before this change).
+
+## Confirmed safe
+
+Every component that uses `IDLE_FORM_STATE` alongside these actions
+(`team-form.tsx`, `customer-form.tsx`, `content-block-form.tsx`,
+`settings-form.tsx`, `inquiry-form.tsx`, and all the others across the admin)
+already imports it directly from `@/lib/admin/forms`, not from any actions
+file — checked across every `.ts`/`.tsx` file in the project. No other file
+imports `IDLE_FORM_STATE` from any of these five action files, so removing
+the re-export breaks nothing.
+
+Also swept every other `"use server"` file under `app/admin/` (14 total) for
+the same pattern — no other file had a non-async, non-type export. The only
+other non-function export anywhere in these files is
+`export type AdminActionState = { error: string | null };` in
+`app/admin/orders/actions.ts`, which is a type export and is explicitly
+allowed by Next.js's "use server" rule — left untouched, as instructed.
+
+No business logic, RBAC, S3, payments, analytics, or schema code was
+touched — only the export statement and its now-unused import in each file.
 
 ## Checks run
-- `npx tsc --noEmit` — could not complete in this sandbox; `prisma generate`
-  needs `binaries.prisma.sh`, which this sandbox's network doesn't allow, and
-  without the generated Prisma client the *entire* codebase fails to
-  type-check on that one pre-existing, unrelated condition. As a substitute,
-  the changed file was syntax-checked with esbuild (passed) — **please run
-  `npm run typecheck` yourself** after `npm run db:generate`.
-- `npx eslint app/admin/team/actions.ts` — clean, no errors or warnings.
-- `npx vitest run` — full suite: 439 tests passed. The only 2 failing test
-  files fail on the same missing-generated-client condition, unrelated to
-  this change. `tests/admin-validation.test.ts` (26 tests, covers team-form
-  validation) passes in full.
+
+- `npx tsc --noEmit` — could not complete in this sandbox for the same
+  reason as the last two rounds: `prisma generate` needs
+  `binaries.prisma.sh`, which this sandbox's network doesn't allow, so the
+  generated Prisma client (`lib/generated/prisma`) doesn't exist here and the
+  whole codebase fails to type-check on that one pre-existing, unrelated
+  condition. As a substitute, all five changed files were syntax-checked
+  with esbuild — all passed. **Please run `npm run db:generate && npm run
+  typecheck` yourself** before deploying; this class of bug (an invalid
+  "use server" export) is exactly the kind of thing `tsc`/Next's build step
+  would have caught, so it's worth confirming clean.
+- `npx eslint <the five files>` — clean, no errors or warnings.
+- `npx vitest run` — full suite: 439 tests passed. The same 2 pre-existing
+  test files fail on the missing-generated-client condition above, unrelated
+  to this change.

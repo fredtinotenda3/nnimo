@@ -6,7 +6,6 @@ import { logger } from "@/lib/logger";
 import { requireMutationPermission } from "@/lib/session";
 import { recordAudit } from "@/lib/audit";
 import {
-  IDLE_FORM_STATE,
   formError,
   formSuccess,
   type AdminFormState,
@@ -18,8 +17,6 @@ import {
   validateSettingValue,
   type SettingGroup,
 } from "@/lib/admin/settings-registry";
-
-export { IDLE_FORM_STATE };
 
 /**
  * Saving business settings.
